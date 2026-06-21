@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  # ─── PostgreSQL ────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: zt-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       zerotrust_db
+      POSTGRES_USER:     zerotrust
+      POSTGRES_PASSWORD: zerotrust123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zerotrust -d zerotrust_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── Backend (Spring Boot) ─────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: zt-backend
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL:      jdbc:postgresql://postgres:5432/zerotrust_db
+      SPRING_DATASOURCE_USERNAME: zerotrust
+      SPRING_DATASOURCE_PASSWORD: zerotrust123
+      JWT_SECRET:                 "zerotrust-platform-super-secret-key-for-hs256-algorithm-must-be-at-least-256-bits"
+      APP_AI_ENABLED:             "${GEMINI_AI_ENABLED:-false}"
+      APP_AI_GEMINI_API_KEY:      "${GEMINI_API_KEY:-}"
+      APP_SECURITY_CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:80"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ─── Frontend (React + Nginx) ──────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: zt-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    name: zt-postgres-data

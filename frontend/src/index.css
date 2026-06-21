@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base ─────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    @apply bg-surface-900 text-slate-100 font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-surface-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-surface-600 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-500; }
+
+  ::selection { @apply bg-brand-500/30 text-white; }
+}
+
+/* ─── Utilities ─────────────────────────────────── */
+@layer utilities {
+  .glass {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(148, 163, 184, 0.08);
+  }
+
+  .glass-dark {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(148, 163, 184, 0.06);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #818cf8, #a78bfa, #c084fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-danger {
+    background: linear-gradient(135deg, #f87171, #fb923c);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .border-gradient {
+    border: 1px solid transparent;
+    background: linear-gradient(var(--surface-800), var(--surface-800)) padding-box,
+                linear-gradient(135deg, #6366f1, #a855f7) border-box;
+  }
+
+  .card {
+    @apply bg-surface-800 border border-slate-700/50 rounded-xl;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-200 hover:border-brand-500/30 hover:shadow-lg hover:shadow-brand-500/5;
+  }
+
+  .input-dark {
+    @apply bg-surface-700 border border-slate-600 rounded-lg px-3 py-2.5 text-slate-100
+           placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50
+           focus:border-brand-500/50 transition-all duration-200 w-full text-sm;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-500 hover:to-violet-500
+           text-white font-semibold px-4 py-2.5 rounded-lg transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50
+           disabled:cursor-not-allowed flex items-center gap-2 text-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-700 hover:bg-surface-600 border border-slate-600 hover:border-slate-500
+           text-slate-200 font-medium px-4 py-2.5 rounded-lg transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-slate-500/30 flex items-center gap-2 text-sm;
+  }
+
+  .btn-danger {
+    @apply bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50
+           text-red-400 hover:text-red-300 font-medium px-4 py-2.5 rounded-lg transition-all
+           duration-200 flex items-center gap-2 text-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .severity-critical { @apply badge bg-red-500/20 text-red-300 border border-red-500/30; }
+  .severity-high     { @apply badge bg-orange-500/20 text-orange-300 border border-orange-500/30; }
+  .severity-medium   { @apply badge bg-amber-500/20 text-amber-300 border border-amber-500/30; }
+  .severity-low      { @apply badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/30; }
+
+  .status-detected      { @apply badge bg-blue-500/20 text-blue-300 border border-blue-500/30; }
+  .status-investigating { @apply badge bg-purple-500/20 text-purple-300 border border-purple-500/30; }
+  .status-resolved      { @apply badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/30; }
+  .status-false_positive { @apply badge bg-slate-500/20 text-slate-400 border border-slate-500/30; }
+
+  .animate-in { animation: fadeIn 0.3s ease-out, slideUp 0.4s ease-out; }
+}
+
+/* ─── Login page background ──────────────────── */
+.login-bg {
+  background: radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.12) 0%, transparent 60%),
+              radial-gradient(ellipse at 60% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 60%),
+              #020617;
+}
+
+/* ─── Recharts overrides ─────────────────────── */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(148, 163, 184, 0.08) !important;
+}
+.recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: #1e293b !important;
+  border: 1px solid rgba(148, 163, 184, 0.1) !important;
+  border-radius: 8px !important;
+}
+.recharts-legend-item-text { color: #94a3b8 !important; }
+
+/* ─── Animations ─────────────────────────────── */
+@keyframes fadeIn    { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp   { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes shimmer   { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); } 50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); } }
+
+.skeleton {
+  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}

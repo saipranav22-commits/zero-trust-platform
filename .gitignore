@@ -1,0 +1,44 @@
+# Zero Trust Platform — Git Ignore
+
+# ─── Java / Maven ──────────────────────────
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.properties
+
+# ─── Spring Boot ───────────────────────────
+application-local.yml
+application-prod.yml
+
+# ─── Node / React ──────────────────────────
+node_modules/
+dist/
+.vite/
+*.local
+
+# ─── Environment ───────────────────────────
+.env
+.env.local
+.env.production
+
+# ─── IDE ───────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# ─── OS ────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Docker ────────────────────────────────
+.dockerignore
+
+# ─── Logs ──────────────────────────────────
+*.log
+logs/
