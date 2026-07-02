@@ -35,6 +35,19 @@ The Zero Trust Security Platform follows a layered architecture that separates a
   <img src="Screenshot%202026-07-03%20004700.png" alt="System Architecture" width="1000"/>
 </p>
 ---
+---
+
+# 📸 Application Screenshots
+
+## 🔐 Login Page
+
+<p align="center">
+  <img src="./login-page.png" alt="Login Page" width="900"/>
+</p>
+
+The platform provides secure authentication using JWT-based login with Role-Based Access Control (RBAC). Users can quickly access demo accounts or sign in with their own credentials.
+
+---
 
 ## 📂 Project Structure
 
