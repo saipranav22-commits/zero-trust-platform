@@ -24,9 +24,18 @@
 
 ---
 
-## 🏗️ Architecture
 
-```
+---
+
+# 🏗️ System Architecture
+
+The Zero Trust Security Platform follows a layered architecture that separates authentication, threat detection, audit logging, AI-powered security intelligence, and secure data persistence into dedicated components.
+
+<p align="center">
+  <img src="Screenshot%202026-07-03%20004700.png" alt="System Architecture" width="1000"/>
+</p>
+
+---
 zero-trust-platform/
 ├── backend/          # Spring Boot 3.3.2 + Java 21
 │   ├── src/main/java/com/zerotrust/
