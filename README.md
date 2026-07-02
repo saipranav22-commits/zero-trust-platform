@@ -34,6 +34,7 @@ The Zero Trust Security Platform follows a layered architecture that separates a
 <p align="center">
   <img src="Screenshot%202026-07-03%20004700.png" alt="System Architecture" width="1000"/>
 </p>
+---
 
 ---
 zero-trust-platform/
