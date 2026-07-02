@@ -36,30 +36,31 @@ The Zero Trust Security Platform follows a layered architecture that separates a
 </p>
 ---
 
----
+## 📂 Project Structure
+
+```text
 zero-trust-platform/
-├── backend/          # Spring Boot 3.3.2 + Java 21
+├── backend/
 │   ├── src/main/java/com/zerotrust/
-│   │   ├── config/         # SecurityConfig, DataInitializer, OpenApi
-│   │   ├── controller/     # REST controllers (auth, threats, audit, dashboard, AI)
-│   │   ├── entity/         # JPA entities + enums
-│   │   ├── exception/      # GlobalExceptionHandler + custom exceptions
-│   │   ├── repository/     # Spring Data JPA repositories
-│   │   ├── security/       # JWT provider, filter, UserDetails
-│   │   ├── service/        # Business logic (auth, audit, threats, AI, dashboard)
-│   │   └── threat/         # Threat detection engine (pattern matching rules)
+│   │   ├── config/
+│   │   ├── controller/
+│   │   ├── entity/
+│   │   ├── exception/
+│   │   ├── repository/
+│   │   ├── security/
+│   │   ├── service/
+│   │   └── threat/
 │   └── src/main/resources/
 │       ├── application.yml
-│       └── db/migration/   # Flyway SQL schemas
-│
-├── frontend/         # React 18 + TypeScript + TailwindCSS
+│       └── db/migration/
+├── frontend/
 │   └── src/
-│       ├── api/      # Axios API clients
-│       ├── components/ # Layout, UI, Charts
-│       ├── pages/    # Dashboard, Threats, Audit, Activity, AI, Users, Settings
-│       ├── store/    # Zustand auth store
-│       └── types/    # TypeScript type definitions
-│
+│       ├── api/
+│       ├── components/
+│       ├── pages/
+│       ├── store/
+│       └── types/
+├── docs/
 ├── docker-compose.yml
 └── .env.example
 ```
