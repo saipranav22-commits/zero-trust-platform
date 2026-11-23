@@ -56,6 +56,19 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+            // Exception handling: return 401 for unauthenticated, 403 for forbidden
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"success\":false,\"status\":401,\"message\":\"Authentication required\"}");
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"success\":false,\"status\":403,\"message\":\"Access denied: insufficient permissions\"}");
+                }))
+
             // Security headers
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny())
@@ -73,6 +86,8 @@ public class SecurityConfig {
                                               "/api/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health", "/api-docs/**",
                                                "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // SSE stream — authenticated by JWT query param
+                .requestMatchers(HttpMethod.GET, "/api/notifications/stream").permitAll()
                 // All other requests require authentication
                 .anyRequest().authenticated())
 

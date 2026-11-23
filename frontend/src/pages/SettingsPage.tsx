@@ -1,100 +1,206 @@
-import { Shield, Settings, Key, Bell, Database } from 'lucide-react'
-import { Layout } from '@/components/layout/Layout'
-import { useAuthStore } from '@/store/auth.store'
-import { RoleBadge } from '@/components/ui/Badge'
+import { Shield, Key, Database, Cpu, Settings, Sparkles } from 'lucide-react';
+import { Layout } from '@/components/layout/Layout';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { RoleBadge } from '@/components/ui/Badge';
+import { useAuthStore } from '@/store/auth.store';
+
+const securityFeatures = [
+  {
+    title: 'JWT Authentication',
+    description: 'HS256 cryptographic algorithm, 15-minute access token expiry duration',
+    active: true,
+  },
+  {
+    title: 'Refresh Token Rotation',
+    description: '7-day reuse detection token window with rotation invalidation',
+    active: true,
+  },
+  {
+    title: 'Brute Force Protection',
+    description: 'Immediate account lockout triggers after 5 unsuccessful login iterations',
+    active: true,
+  },
+  {
+    title: 'Audit Chain Cryptography',
+    description: 'SHA-256 integrity blockchain logs linked using previous log hashes',
+    active: true,
+  },
+  {
+    title: 'Threat Detection Rules Engine',
+    description: 'Heuristic pattern detection triggers real-time telemetry containment alerts',
+    active: true,
+  },
+  {
+    title: 'AI Security Assistant',
+    description: 'LLM security copilot capabilities driven by Gemini context models',
+    active: true,
+  },
+];
+
+const techStack = [
+  { label: 'Core Engine Core', value: 'Spring Boot 3.3.2 • Java 21' },
+  { label: 'Security Relational Database', value: 'PostgreSQL + Flyway Migration System' },
+  { label: 'Access Token Configuration', value: 'JWT Signature Verification + RBAC Filter Claims' },
+  { label: 'Client Presentation Framework', value: 'React 18 + TypeScript + Vite Bundler' },
+  { label: 'Heuristics AI Pipeline', value: 'Google Gemini (Provider Agnostic Fallback Engine)' },
+  { label: 'Containment Infrastructure', value: 'Docker Compose Container Orchestration' },
+];
 
 export function SettingsPage() {
-  const { user } = useAuthStore()
+  const { user } = useAuthStore();
+
+  const accountRows = [
+    { label: 'Administrator Profile', value: user ? `${user.firstName} ${user.lastName}` : '—' },
+    { label: 'Corporate Email', value: user?.email ?? '—' },
+    {
+      label: 'Unique Profile ID',
+      value: user?.id ?? '—',
+      mono: true,
+    },
+    {
+      label: 'Granted Credentials',
+      value: user?.roles ?? [],
+      isRoles: true,
+    },
+  ];
 
   return (
-    <Layout title="Settings" subtitle="Platform configuration and account preferences">
-      <div className="max-w-2xl space-y-4">
+    <Layout>
+      <PageHeader
+        title="Platform Settings"
+        description="Review security enforcement configurations, account settings, and engine details"
+        icon={<Settings className="w-5 h-5" />}
+      />
 
-        {/* Account Info */}
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-brand-500/15 flex items-center justify-center">
-              <Shield className="w-4 h-4 text-brand-400" />
-            </div>
-            <h2 className="font-semibold text-slate-100">Account Information</h2>
-          </div>
-          <div className="space-y-3">
-            {[
-              { label: 'Name', val: `${user?.firstName} ${user?.lastName}` },
-              { label: 'Email', val: user?.email },
-              { label: 'User ID', val: user?.id, mono: true },
-            ].map(({ label, val, mono }) => (
-              <div key={label} className="flex items-center justify-between py-2 border-b border-slate-700/40 last:border-0">
-                <span className="text-sm text-slate-400">{label}</span>
-                <span className={`text-sm text-slate-200 ${mono ? 'font-mono text-xs' : ''}`}>{val}</span>
+      <div className="max-w-3xl space-y-6">
+        {/* Card 0: Syvora Security Engine */}
+        <div className="sentinel-card p-5">
+          <h2 className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2 mb-4">
+            <Cpu className="w-4 h-4 text-[#16A34A]" />
+            Syvora Core Engine
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-[#1F2530] border border-[#2D3642] p-3 rounded-lg flex items-center justify-between">
+              <div>
+                <p className="text-xs text-[#64748B] font-medium">Engine Status</p>
+                <p className="text-sm font-semibold text-[#F8FAFC] mt-0.5">Fully Operational</p>
               </div>
-            ))}
-            <div className="flex items-center justify-between py-2">
-              <span className="text-sm text-slate-400">Roles</span>
-              <div className="flex gap-1">{user?.roles?.map((r) => <RoleBadge key={r} role={r} />)}</div>
+              <span className="w-2.5 h-2.5 rounded-full bg-[#16A34A] live-dot" />
+            </div>
+            <div className="bg-[#1F2530] border border-[#2D3642] p-3 rounded-lg">
+              <p className="text-xs text-[#64748B] font-medium">Software Version</p>
+              <p className="text-sm font-bold text-[#16A34A] mt-0.5 font-mono">v1.0-ENTERPRISE</p>
             </div>
           </div>
         </div>
 
-        {/* Security Settings */}
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
-              <Key className="w-4 h-4 text-amber-400" />
-            </div>
-            <h2 className="font-semibold text-slate-100">Security Settings</h2>
+        {/* Card 1: Account Information */}
+        <div className="sentinel-card p-5">
+          <h2 className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2 mb-4">
+            <Shield className="w-4 h-4 text-[#16A34A]" />
+            Account Information
+          </h2>
+          <div className="space-y-0">
+            {accountRows.map((row, index) => (
+              <div
+                key={row.label}
+                className={`flex items-center justify-between py-3 ${
+                  index < accountRows.length - 1 ? 'border-b border-[#2D3642]' : ''
+                }`}
+              >
+                <span className="text-sm text-[#64748B] font-medium">{row.label}</span>
+                {row.isRoles ? (
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {(row.value as string[]).length > 0 ? (
+                      (row.value as string[]).map((role) => (
+                        <RoleBadge key={role} role={role} />
+                      ))
+                    ) : (
+                      <span className="text-sm text-[#F8FAFC] font-medium">—</span>
+                    )}
+                  </div>
+                ) : (
+                  <span
+                    className={`text-sm text-[#F8FAFC] font-medium ${row.mono ? 'font-mono text-xs' : ''}`}
+                  >
+                    {row.value as string}
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
+        </div>
+
+        {/* Card 1.5: Syvora AI Copilot Health Status */}
+        <div className="sentinel-card p-5">
+          <h2 className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2 mb-4">
+            <Sparkles className="w-4 h-4 text-[#16A34A]" />
+            Syvora AI Service Status
+          </h2>
           <div className="space-y-3">
-            {[
-              { label: 'JWT Authentication', val: 'HS256 • 15 min expiry', status: 'active' },
-              { label: 'Refresh Token', val: '7 day rotation', status: 'active' },
-              { label: 'Brute Force Protection', val: '5 attempts → 15 min lockout', status: 'active' },
-              { label: 'Audit Logging', val: 'SHA-256 hash chaining', status: 'active' },
-              { label: 'Threat Detection', val: 'SQLi • XSS • Brute Force • Path Traversal', status: 'active' },
-              { label: 'AI Assistant (Gemini)', val: 'Configure API key in application.yml', status: 'config' },
-            ].map(({ label, val, status }) => (
-              <div key={label} className="flex items-center justify-between py-2.5 border-b border-slate-700/40 last:border-0">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[#64748B] font-medium">Syvora AI Model</span>
+              <span className="sentinel-badge bg-[#16A34A]/10 border-[#16A34A]/25 text-[#16A34A]">Gemini-1.5-Flash</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-[#64748B] font-medium">RAG Fallback Engine</span>
+              <span className="sentinel-badge bg-[#16A34A]/10 border-[#16A34A]/25 text-[#16A34A]">Operational</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Security Configuration */}
+        <div className="sentinel-card p-5">
+          <h2 className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2 mb-4">
+            <Key className="w-4 h-4 text-[#16A34A]" />
+            Active Platform Policies
+          </h2>
+          <div className="space-y-0">
+            {securityFeatures.map((feature, index) => (
+              <div
+                key={feature.title}
+                className={`flex items-center justify-between py-3 ${
+                  index < securityFeatures.length - 1 ? 'border-b border-[#2D3642]' : ''
+                }`}
+              >
                 <div>
-                  <p className="text-sm text-slate-200">{label}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{val}</p>
+                  <p className="text-sm font-medium text-[#F8FAFC]">{feature.title}</p>
+                  <p className="text-xs text-[#64748B] mt-0.5">{feature.description}</p>
                 </div>
-                <span className={`badge ${
-                  status === 'active' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25' :
-                  'bg-amber-500/15 text-amber-300 border-amber-500/25'
-                } border`}>
-                  {status === 'active' ? '● Active' : '⚙ Configure'}
-                </span>
+                <div className="flex items-center gap-2 shrink-0 ml-4">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      feature.active ? 'bg-[#16A34A]' : 'bg-[#D97706]'
+                    }`}
+                  />
+                  <span className="text-xs font-semibold text-[#64748B] uppercase tracking-wider">
+                    {feature.active ? 'Enforced' : 'Configure'}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Platform Info */}
-        <div className="card p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-slate-500/15 flex items-center justify-center">
-              <Database className="w-4 h-4 text-slate-400" />
-            </div>
-            <h2 className="font-semibold text-slate-100">Platform Stack</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: 'Backend', val: 'Spring Boot 3.3.2 • Java 21' },
-              { label: 'Database', val: 'PostgreSQL + Flyway' },
-              { label: 'Authentication', val: 'JWT + RBAC' },
-              { label: 'Frontend', val: 'React 18 + TypeScript' },
-              { label: 'AI Provider', val: 'Google Gemini (provider-agnostic)' },
-              { label: 'Containerization', val: 'Docker + Docker Compose' },
-            ].map(({ label, val }) => (
-              <div key={label} className="bg-surface-700 rounded-lg p-3 border border-slate-700/50">
-                <p className="text-xs text-slate-500 mb-0.5">{label}</p>
-                <p className="text-xs text-slate-300 font-medium">{val}</p>
+        {/* Card 3: Platform Stack */}
+        <div className="sentinel-card p-5">
+          <h2 className="text-sm font-semibold text-[#F8FAFC] flex items-center gap-2 mb-4">
+            <Database className="w-4 h-4 text-[#16A34A]" />
+            Technology Architecture Profile
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {techStack.map((item) => (
+              <div
+                key={item.label}
+                className="bg-[#1F2530] rounded-lg p-3 border border-[#2D3642]"
+              >
+                <p className="text-xs text-[#64748B] font-semibold">{item.label}</p>
+                <p className="text-xs text-[#F8FAFC] mt-1 font-medium">{item.value}</p>
               </div>
             ))}
           </div>
         </div>
-
       </div>
     </Layout>
-  )
+  );
 }

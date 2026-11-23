@@ -10,6 +10,8 @@ import { ActivityPage } from '@/pages/ActivityPage'
 import { AiPage }       from '@/pages/AiPage'
 import { UsersPage }    from '@/pages/UsersPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { NotFoundPage } from '@/pages/NotFoundPage'
+import { SecurityAlertsPage } from '@/pages/SecurityAlertsPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,15 +32,16 @@ export default function App() {
           toastOptions={{
             duration: 4000,
             style: {
-              background: '#1e293b',
-              color: '#cbd5e1',
-              border: '1px solid rgba(148,163,184,0.15)',
+              background: '#1F2530',
+              color: '#F8FAFC',
+              border: '1px solid #2D3642',
               borderRadius: '10px',
               fontSize: '13px',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'Inter, IBM Plex Sans, sans-serif',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
             },
-            success: { iconTheme: { primary: '#10b981', secondary: '#1e293b' } },
-            error:   { iconTheme: { primary: '#ef4444', secondary: '#1e293b' } },
+            success: { iconTheme: { primary: '#16A34A', secondary: '#1F2530' } },
+            error:   { iconTheme: { primary: '#DC2626', secondary: '#1F2530' } },
           }}
         />
 
@@ -55,6 +58,7 @@ export default function App() {
             <Route path="/activity"  element={<ActivityPage />} />
             <Route path="/ai"        element={<AiPage />} />
             <Route path="/settings"  element={<SettingsPage />} />
+            <Route path="/alerts"    element={<SecurityAlertsPage />} />
           </Route>
 
           {/* Admin only */}
@@ -63,7 +67,7 @@ export default function App() {
           </Route>
 
           {/* 404 */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

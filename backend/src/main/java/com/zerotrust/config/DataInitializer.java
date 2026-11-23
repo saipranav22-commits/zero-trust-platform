@@ -1,7 +1,15 @@
 package com.zerotrust.config;
 
+import com.zerotrust.entity.Account;
+import com.zerotrust.entity.Customer;
 import com.zerotrust.entity.Role;
 import com.zerotrust.entity.User;
+import com.zerotrust.entity.enums.AccountStatus;
+import com.zerotrust.entity.enums.AccountType;
+import com.zerotrust.entity.enums.KycStatus;
+import com.zerotrust.entity.enums.RiskTier;
+import com.zerotrust.repository.AccountRepository;
+import com.zerotrust.repository.CustomerRepository;
 import com.zerotrust.repository.RoleRepository;
 import com.zerotrust.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,14 +17,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Set;
 
 /**
- * Seeds the database with default roles and an admin user on startup.
- * Only runs if the data does not already exist.
+ * Seeds the database with default roles.
+ * Synthetic demo users and banking records are DISABLED by default and strictly prohibited in production.
  */
 @Slf4j
 @Component
@@ -25,13 +37,35 @@ public class DataInitializer implements ApplicationRunner {
 
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
+    private final AccountRepository accountRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Environment environment;
+
+    @Value("${app.seed-demo-data:false}")
+    private boolean seedDemoData;
 
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
         seedRoles();
-        seedAdminUser();
+
+        boolean isProd = Arrays.asList(environment.getActiveProfiles()).contains("prod");
+        if (isProd && seedDemoData) {
+            throw new IllegalStateException(
+                "CRITICAL SECURITY CONFIGURATION ERROR: Demo data seeding (app.seed-demo-data=true) " +
+                "is strictly prohibited in the 'prod' profile. Application startup aborted."
+            );
+        }
+
+        if (!seedDemoData) {
+            log.info("Demo data seeding is disabled by default (app.seed-demo-data=false). Skipping demo user creation.");
+            return;
+        }
+
+        log.warn("⚠️ Demo data seeding is ENABLED (app.seed-demo-data=true). Creating synthetic development accounts.");
+        seedUsers();
+        seedSyntheticBankingData();
     }
 
     private void seedRoles() {
@@ -63,31 +97,26 @@ public class DataInitializer implements ApplicationRunner {
         }
     }
 
-    private void seedAdminUser() {
-        if (userRepository.existsByEmail("admin@zerotrust.com")) {
-            log.debug("Admin user already exists, skipping seed");
-            return;
-        }
-
+    private void seedUsers() {
         Role adminRole = roleRepository.findByName("ROLE_ADMIN")
             .orElseThrow(() -> new IllegalStateException("ROLE_ADMIN not found — roles must be seeded first"));
+        Role analystRole = roleRepository.findByName("ROLE_SECURITY_ANALYST").orElse(adminRole);
+        Role auditorRole = roleRepository.findByName("ROLE_AUDITOR").orElse(adminRole);
+        Role employeeRole = roleRepository.findByName("ROLE_EMPLOYEE").orElse(adminRole);
 
-        User admin = User.builder()
-            .email("admin@zerotrust.com")
-            .passwordHash(passwordEncoder.encode("Admin@123"))
-            .firstName("System")
-            .lastName("Administrator")
-            .isActive(true)
-            .isLocked(false)
-            .roles(Set.of(adminRole))
-            .build();
-
-        userRepository.save(admin);
-        log.info("✅ Default admin user created: admin@zerotrust.com / Admin@123");
-
-        // Also create a demo analyst user
-        Role analystRole = roleRepository.findByName("ROLE_SECURITY_ANALYST")
-            .orElse(adminRole);
+        if (!userRepository.existsByEmail("admin@zerotrust.com")) {
+            User admin = User.builder()
+                .email("admin@zerotrust.com")
+                .passwordHash(passwordEncoder.encode("Admin@123"))
+                .firstName("System")
+                .lastName("Administrator")
+                .isActive(true)
+                .isLocked(false)
+                .roles(Set.of(adminRole))
+                .build();
+            userRepository.save(admin);
+            log.info("✅ Default admin user created: admin@zerotrust.com / Admin@123");
+        }
 
         if (!userRepository.existsByEmail("analyst@zerotrust.com")) {
             User analyst = User.builder()
@@ -102,5 +131,110 @@ public class DataInitializer implements ApplicationRunner {
             userRepository.save(analyst);
             log.info("✅ Demo analyst user created: analyst@zerotrust.com / Analyst@123");
         }
+
+        if (!userRepository.existsByEmail("auditor@zerotrust.com")) {
+            User auditor = User.builder()
+                .email("auditor@zerotrust.com")
+                .passwordHash(passwordEncoder.encode("Auditor@123"))
+                .firstName("Compliance")
+                .lastName("Auditor")
+                .isActive(true)
+                .isLocked(false)
+                .roles(Set.of(auditorRole))
+                .build();
+            userRepository.save(auditor);
+            log.info("✅ Demo auditor user created: auditor@zerotrust.com / Auditor@123");
+        }
+
+        if (!userRepository.existsByEmail("employee@zerotrust.com")) {
+            User employee = User.builder()
+                .email("employee@zerotrust.com")
+                .passwordHash(passwordEncoder.encode("Employee@123"))
+                .firstName("Employee")
+                .lastName("Primary")
+                .isActive(true)
+                .isLocked(false)
+                .roles(Set.of(employeeRole))
+                .build();
+            userRepository.save(employee);
+            log.info("✅ Demo employee user created: employee@zerotrust.com / Employee@123");
+        }
+
+        if (!userRepository.existsByEmail("employee2@zerotrust.com")) {
+            User employee2 = User.builder()
+                .email("employee2@zerotrust.com")
+                .passwordHash(passwordEncoder.encode("Employee@123"))
+                .firstName("Employee")
+                .lastName("Secondary")
+                .isActive(true)
+                .isLocked(false)
+                .roles(Set.of(employeeRole))
+                .build();
+            userRepository.save(employee2);
+            log.info("✅ Demo employee2 user created: employee2@zerotrust.com / Employee@123");
+        }
+    }
+
+    private void seedSyntheticBankingData() {
+        if (customerRepository.count() > 0) {
+            return;
+        }
+
+        User employee1 = userRepository.findByEmail("employee@zerotrust.com").orElse(null);
+        User employee2 = userRepository.findByEmail("employee2@zerotrust.com").orElse(null);
+
+        // Customer 1 assigned to Employee 1
+        Customer cust1 = Customer.builder()
+            .customerNumber("CUST-1001")
+            .firstName("Client")
+            .lastName("Alpha")
+            .email("client.alpha@synthetic-domain.test")
+            .phoneNumber("+1-555-0101")
+            .kycStatus(KycStatus.VERIFIED)
+            .riskTier(RiskTier.LOW)
+            .assignedEmployeeId(employee1 != null ? employee1.getId() : null)
+            .syntheticTaxId("SYN-991-8841")
+            .annualIncome(new BigDecimal("125000.00"))
+            .creditScore(780)
+            .build();
+        customerRepository.save(cust1);
+
+        Account acc1 = Account.builder()
+            .customer(cust1)
+            .accountNumber("ACC-CHK-1001")
+            .accountType(AccountType.CHECKING)
+            .balance(new BigDecimal("24500.00"))
+            .currency("USD")
+            .status(AccountStatus.ACTIVE)
+            .build();
+        accountRepository.save(acc1);
+
+        // Customer 2 assigned to Employee 2 (for BOLA testing)
+        Customer cust2 = Customer.builder()
+            .customerNumber("CUST-1002")
+            .firstName("Client")
+            .lastName("Beta")
+            .email("client.beta@synthetic-domain.test")
+            .phoneNumber("+1-555-0102")
+            .kycStatus(KycStatus.VERIFIED)
+            .riskTier(RiskTier.MEDIUM)
+            .assignedEmployeeId(employee2 != null ? employee2.getId() : null)
+            .syntheticTaxId("SYN-772-5512")
+            .annualIncome(new BigDecimal("85000.00"))
+            .creditScore(690)
+            .build();
+        customerRepository.save(cust2);
+
+        Account acc2 = Account.builder()
+            .customer(cust2)
+            .accountNumber("ACC-SAV-2002")
+            .accountType(AccountType.SAVINGS)
+            .balance(new BigDecimal("50000.00"))
+            .currency("USD")
+            .status(AccountStatus.ACTIVE)
+            .build();
+        accountRepository.save(acc2);
+
+        log.info("✅ Synthetic banking dataset initialized with 2 customer portfolios");
     }
 }

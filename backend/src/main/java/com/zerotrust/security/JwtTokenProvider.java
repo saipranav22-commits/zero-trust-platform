@@ -25,10 +25,21 @@ public class JwtTokenProvider {
     private final long accessTokenExpiryMs;
 
     public JwtTokenProvider(
-            @Value("${jwt.secret}") String secret,
-            @Value("${jwt.access-token-expiry-ms}") long accessTokenExpiryMs) {
+            @Value("${jwt.secret:}") String secret,
+            @Value("${jwt.access-token-expiry-ms:900000}") long accessTokenExpiryMs) {
+        if (secret == null || secret.trim().isEmpty()) {
+            throw new IllegalStateException(
+                "CRITICAL SECURITY CONFIGURATION ERROR: JWT_SECRET environment variable is missing or empty. " +
+                "The platform refuses to start without a valid signing secret."
+            );
+        }
+        if (secret.getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException(
+                "CRITICAL SECURITY CONFIGURATION ERROR: JWT secret must be at least 256 bits (32 bytes) for HMAC-SHA256."
+            );
+        }
         byte[] keyBytes = Decoders.BASE64.decode(
-            java.util.Base64.getEncoder().encodeToString(secret.getBytes())
+            java.util.Base64.getEncoder().encodeToString(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8))
         );
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenExpiryMs = accessTokenExpiryMs;
@@ -45,11 +56,9 @@ public class JwtTokenProvider {
             .subject(userId.toString())
             .issuedAt(now)
             .expiration(expiry)
-            .claims(Map.of(
-                "email", email,
-                "roles", roles,
-                "userId", userId.toString()
-            ))
+            .claim("email", email)
+            .claim("roles", roles)
+            .claim("userId", userId.toString())
             .signWith(secretKey, Jwts.SIG.HS256)
             .compact();
     }

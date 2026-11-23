@@ -10,6 +10,7 @@ import com.zerotrust.threat.DetectionResult;
 import com.zerotrust.threat.ThreatDetectionEngine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -33,6 +34,8 @@ public class ThreatService {
 
     private final ThreatEventRepository  threatEventRepository;
     private final ThreatDetectionEngine  detectionEngine;
+    @Lazy
+    private final NotificationService    notificationService;
 
     /**
      * Analyzes input for threats. Saves a ThreatEvent if a threat is found.
@@ -62,6 +65,30 @@ public class ThreatService {
         ThreatEvent saved = threatEventRepository.save(event);
         log.warn("🚨 THREAT DETECTED [{}] [{}] from IP={} user={} target={}",
             result.threatType(), result.severity(), sourceIp, userEmail, targetResource);
+
+        // Fire real-time notification
+        try {
+            String iconType = switch (result.severity()) {
+                case CRITICAL -> "CRITICAL";
+                case HIGH     -> "HIGH";
+                default       -> "THREAT";
+            };
+            String desc = String.format("%s attack detected from IP %s targeting %s. Rule matched: %s.",
+                result.threatType().name().replace('_', ' '), sourceIp, targetResource, result.detectionRule());
+            notificationService.createNotification(
+                result.threatType().name().replace('_', ' ') + " Detected",
+                desc,
+                result.severity(),
+                "THREAT_DETECTION",
+                saved.getId(), saved.getId(), null,
+                "/threats?id=" + saved.getId(),
+                "Syvora Detection Engine",
+                iconType
+            );
+        } catch (Exception ex) {
+            log.warn("Could not create notification for threat {}: {}", saved.getId(), ex.getMessage());
+        }
+
         return saved;
     }
 

@@ -98,6 +98,12 @@ public class AuditService {
         return auditLogRepository.findAll(spec, pageable);
     }
 
+    @Transactional(readOnly = true)
+    public AuditLog getById(UUID id) {
+        return auditLogRepository.findById(id)
+            .orElseThrow(() -> new com.zerotrust.exception.ResourceNotFoundException("Audit log not found: " + id));
+    }
+
     /**
      * Verifies the integrity of an audit log entry by recomputing its hash.
      */

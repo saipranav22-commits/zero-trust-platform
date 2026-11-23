@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8080
   error:
     include-message: always
     include-binding-errors: always
@@ -20,6 +20,7 @@ spring:
       max-lifetime: 1800000
 
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false
@@ -42,11 +43,12 @@ spring:
     time-zone: UTC
 
 jwt:
-  secret: "zerotrust-platform-super-secret-key-for-hs256-algorithm-must-be-at-least-256-bits"
+  secret: ${JWT_SECRET:}
   access-token-expiry-ms: 900000       # 15 minutes
   refresh-token-expiry-ms: 604800000   # 7 days
 
 app:
+  seed-demo-data: false
   security:
     max-failed-logins: 5
     lockout-duration-minutes: 15

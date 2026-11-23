@@ -1,16 +1,28 @@
 // ─── Auth Types ──────────────────────────────────────
+export interface Role {
+  id: string
+  name: string
+  description: string
+  createdAt: string
+}
+
 export interface User {
   id: string
   email: string
   firstName: string
   lastName: string
-  roles: string[]
-  isActive: boolean
-  isLocked: boolean
+  fullName: string
+  roles: Role[]          // Array of Role objects from the backend
+  roleNames: string[]    // Array of role name strings (ROLE_ADMIN, etc.)
+  active: boolean        // Backend uses 'active' not 'isActive'
+  locked: boolean        // Backend uses 'locked' not 'isLocked'
+  accountCurrentlyLocked: boolean
   failedLoginAttempts: number
+  lockUntil?: string
   lastLoginAt?: string
   lastLoginIp?: string
   createdAt: string
+  updatedAt: string
 }
 
 export interface AuthResponse {

@@ -46,11 +46,7 @@ public class AuditController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_ANALYST', 'AUDITOR')")
     @Operation(summary = "Get specific audit log by ID")
     public ResponseEntity<ApiResponse<AuditLog>> getLogById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(
-            auditService.search(null, null, null, null, null,
-                Pageable.ofSize(1)).getContent().stream().findFirst()
-                .orElseThrow(() -> new com.zerotrust.exception.ResourceNotFoundException("Audit log not found: " + id))
-        ));
+        return ResponseEntity.ok(ApiResponse.success(auditService.getById(id)));
     }
 
     @GetMapping("/logs/{id}/verify")
