@@ -25,10 +25,14 @@ USER ztapp
 
 EXPOSE 8080
 
-# JVM tuning for containers
+# JVM tuning for constrained containers (Render 512 MB Free Tier)
 ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
-  "-XX:MaxRAMPercentage=75.0", \
-  "-XX:+UseG1GC", \
+  "-XX:+UseSerialGC", \
+  "-Xms160m", \
+  "-Xmx220m", \
+  "-Xss256k", \
+  "-XX:MaxMetaspaceSize=96m", \
+  "-XX:ReservedCodeCacheSize=48m", \
   "-Djava.security.egd=file:/dev/./urandom", \
   "-jar", "app.jar"]

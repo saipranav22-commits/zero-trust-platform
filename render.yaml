@@ -1,0 +1,51 @@
+services:
+  # SYVORA Backend - Render Free Docker Web Service (512 MB RAM, 0.1 vCPU)
+  - type: web
+    name: syvora-backend
+    env: docker
+    dockerfilePath: backend/Dockerfile
+    dockerContext: backend
+    plan: free
+    region: oregon # or frankfurt - MUST match redis region
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: demo
+      - key: APP_SEED_DEMO_DATA
+        value: "true"
+      - key: POSTGRES_HOST
+        sync: false # Set to Neon direct host (ep-xyz.us-east-2.aws.neon.tech)
+      - key: POSTGRES_PORT
+        value: "5432" # Direct unpooled port (REQUIRED for Flyway advisory locks)
+      - key: POSTGRES_DB
+        value: neondb
+      - key: POSTGRES_USER
+        sync: false # Neon username
+      - key: POSTGRES_PASSWORD
+        sync: false # Neon password
+      - key: SPRING_DATASOURCE_URL
+        sync: false # Full JDBC URL: jdbc:postgresql://ep-xyz.us-east-2.aws.neon.tech:5432/neondb?sslmode=require
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: syvora-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: syvora-redis
+          property: port
+      - key: JWT_SECRET
+        generateValue: true # Generates secure 256-bit secret on Render
+      - key: ENCRYPTION_KEY
+        generateValue: true # Generates secure key on Render
+      - key: APP_SECURITY_CORS_ALLOWED_ORIGINS
+        sync: false # Set to https://<your-project>.pages.dev
+
+  # SYVORA Redis - Render Free Key Value (Valkey 7.2.4, 25 MB RAM)
+  - type: redis
+    name: syvora-redis
+    plan: free
+    region: oregon # MUST match backend region for private networking
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # Private network only

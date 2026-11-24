@@ -1,0 +1,36 @@
+# Production / Cloud Profile for SYVORA on Render Free Tier (512 MB RAM, 0.1 shared vCPU)
+server:
+  forward-headers-strategy: framework
+  tomcat:
+    threads:
+      max: 20
+      min-spare: 4
+    max-connections: 100
+
+spring:
+  datasource:
+    hikari:
+      maximum-pool-size: 4
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 300000
+      max-lifetime: 900000
+
+  flyway:
+    connect-retries: 5
+    connect-retries-interval: 5
+
+  data:
+    redis:
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 4
+          min-idle: 1
+          max-wait: 1000ms
+
+logging:
+  level:
+    com.zerotrust: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: WARN

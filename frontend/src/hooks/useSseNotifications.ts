@@ -34,8 +34,9 @@ export function useSseNotifications({ onNotification, token }: UseSseNotificatio
       const ticket = await notificationApi.getStreamTicket();
       if (!mountedRef.current) return;
 
-      // 2. Connect using relative endpoint with ticket param
-      const url = `/api/notifications/stream?ticket=${encodeURIComponent(ticket)}`;
+      // 2. Connect using configured API endpoint with ticket param
+      const apiBase = import.meta.env.VITE_API_URL || '/api';
+      const url = `${apiBase}/notifications/stream?ticket=${encodeURIComponent(ticket)}`;
       const es = new EventSource(url, { withCredentials: false });
       esRef.current = es;
 

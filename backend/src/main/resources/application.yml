@@ -9,7 +9,7 @@ spring:
     name: zero-trust-platform
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:zerotrust_db}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:zerotrust_db}${POSTGRES_SSL_PARAM:}}
     username: ${POSTGRES_USER:zerotrust}
     password: ${POSTGRES_PASSWORD:}
     hikari:

@@ -2,9 +2,11 @@ import axios, { AxiosError, AxiosInstance } from 'axios'
 import { useAuthStore } from '@/store/auth.store'
 import toast from 'react-hot-toast'
 
+export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
 const api: AxiosInstance = axios.create({
-  baseURL: '/api',
-  timeout: 30000,
+  baseURL: API_BASE_URL,
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -59,7 +61,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const response = await axios.post('/api/auth/refresh', { refreshToken })
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken })
         const { accessToken: newAccess, refreshToken: newRefresh } = response.data.data
         setTokens(newAccess, newRefresh)
         processQueue(null, newAccess)
