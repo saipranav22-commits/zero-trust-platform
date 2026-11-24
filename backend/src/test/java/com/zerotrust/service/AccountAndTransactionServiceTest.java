@@ -241,4 +241,41 @@ class AccountAndTransactionServiceTest {
             .isInstanceOf(ValidationException.class)
             .hasMessageContaining("cannot have more than 2 decimal places");
     }
+
+    @Test
+    @DisplayName("EntityManager refresh failure during transfer throws PersistenceException and is not swallowed")
+    void shouldPropagatePersistenceExceptionWhenEntityManagerRefreshFails() {
+        UUID destAccountId = UUID.randomUUID();
+        Account destAccount = Account.builder()
+            .id(destAccountId)
+            .customer(Customer.builder().id(UUID.randomUUID()).build())
+            .accountNumber("ACC-2002")
+            .balance(new BigDecimal("500.00"))
+            .status(AccountStatus.ACTIVE)
+            .currency("USD")
+            .build();
+
+        when(accountRepository.findById(accountId)).thenReturn(Optional.of(account));
+        when(accountRepository.findByAccountNumber("ACC-2002")).thenReturn(Optional.of(destAccount));
+        when(accountRepository.findByIdWithLock(accountId)).thenReturn(Optional.of(account));
+        when(accountRepository.findByIdWithLock(destAccountId)).thenReturn(Optional.of(destAccount));
+
+        doThrow(new jakarta.persistence.PersistenceException("Database connection timeout during refresh"))
+            .when(entityManager).refresh(any(Account.class));
+
+        TransactionCreateRequest request = new TransactionCreateRequest(
+            accountId,
+            new BigDecimal("300.00"),
+            TransactionType.TRANSFER,
+            "Rent payment",
+            "ACC-2002"
+        );
+
+        assertThatThrownBy(() -> transactionService.executeTransaction(request, employeeSubject))
+            .isInstanceOf(jakarta.persistence.PersistenceException.class)
+            .hasMessageContaining("Database connection timeout during refresh");
+
+        assertThat(account.getBalance()).isEqualByComparingTo("1000.00");
+        verify(transactionRepository, never()).save(any(Transaction.class));
+    }
 }
