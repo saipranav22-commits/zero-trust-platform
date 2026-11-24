@@ -50,10 +50,10 @@ jobs:
 
       - name: Run Backend Tests with Real Postgres & Redis
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/zerotrust_db
-          SPRING_DATASOURCE_USERNAME: zerotrust
-          SPRING_DATASOURCE_PASSWORD: zerotrust123
-          REDIS_HOST: localhost
+          POSTGRES_JDBC_URL: jdbc:postgresql://127.0.0.1:5432/zerotrust_db
+          POSTGRES_USER: zerotrust
+          POSTGRES_PASSWORD: zerotrust123
+          REDIS_HOST: 127.0.0.1
           REDIS_PORT: 6379
           JWT_SECRET: "test-jwt-secret-key-for-unit-testing-purposes-must-be-at-least-256-bits-long"
           ENCRYPTION_KEY: "k+u7V2Xg4qH8lK9pY0rW3tU6yI8oP1aS4dF7gJ0kM3o="

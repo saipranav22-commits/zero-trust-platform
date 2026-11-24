@@ -62,7 +62,10 @@ class PostgresConcurrencyIntegrationTest {
         }
 
         // 1. Check if external or CI PostgreSQL URL is provided via environment
-        String envUrl = System.getenv("SPRING_DATASOURCE_URL");
+        String envUrl = System.getenv("POSTGRES_JDBC_URL");
+        if (envUrl == null || envUrl.isBlank()) {
+            envUrl = System.getenv("SPRING_DATASOURCE_URL");
+        }
         if (envUrl != null && envUrl.startsWith("jdbc:postgresql://")) {
             String host = System.getenv("POSTGRES_HOST") != null ? System.getenv("POSTGRES_HOST") : "127.0.0.1";
             int port = 5432;
@@ -82,10 +85,14 @@ class PostgresConcurrencyIntegrationTest {
 
             try (Socket socket = new Socket(host, port)) {
                 activePostgresJdbcUrl = envUrl;
-                if (System.getenv("SPRING_DATASOURCE_USERNAME") != null) {
+                if (System.getenv("POSTGRES_USER") != null) {
+                    postgresUser = System.getenv("POSTGRES_USER");
+                } else if (System.getenv("SPRING_DATASOURCE_USERNAME") != null) {
                     postgresUser = System.getenv("SPRING_DATASOURCE_USERNAME");
                 }
-                if (System.getenv("SPRING_DATASOURCE_PASSWORD") != null) {
+                if (System.getenv("POSTGRES_PASSWORD") != null) {
+                    postgresPassword = System.getenv("POSTGRES_PASSWORD");
+                } else if (System.getenv("SPRING_DATASOURCE_PASSWORD") != null) {
                     postgresPassword = System.getenv("SPRING_DATASOURCE_PASSWORD");
                 }
                 postgresAvailable = true;
