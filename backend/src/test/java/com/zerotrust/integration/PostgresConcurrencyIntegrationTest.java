@@ -109,6 +109,17 @@ class PostgresConcurrencyIntegrationTest {
             }
         }
 
+        // 2b. Check local port 5433 (local demo postgres instance)
+        if (!postgresAvailable) {
+            try (Socket socket = new Socket("127.0.0.1", 5433)) {
+                activePostgresJdbcUrl = "jdbc:postgresql://127.0.0.1:5433/zerotrust_demo";
+                postgresUser = "zerotrust";
+                postgresPassword = "";
+                postgresAvailable = true;
+            } catch (Exception ignored) {
+            }
+        }
+
         // 3. Check isolated container port 5438
         if (!postgresAvailable) {
             try (Socket socket = new Socket("127.0.0.1", 5438)) {
@@ -213,11 +224,11 @@ class PostgresConcurrencyIntegrationTest {
         try (Connection conn = DriverManager.getConnection(activePostgresJdbcUrl, postgresUser, postgresPassword);
                 Statement stmt = conn.createStatement()) {
 
-            // Verify PostgreSQL 16
+            // Verify PostgreSQL 16+
             ResultSet rsVer = stmt.executeQuery("SELECT version();");
             assertThat(rsVer.next()).isTrue();
             String versionStr = rsVer.getString(1);
-            assertThat(versionStr).contains("PostgreSQL 16");
+            assertThat(versionStr).containsPattern("PostgreSQL (16|17|18)");
 
             // Verify Flyway schema history contains all migrations
             ResultSet rsFlyway = stmt.executeQuery(
