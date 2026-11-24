@@ -50,6 +50,9 @@ class AccountAndTransactionServiceTest {
     private NotificationService notificationService;
 
     @Mock
+    private jakarta.persistence.EntityManager entityManager;
+
+    @Mock
     private IdempotencyService idempotencyService;
 
     @InjectMocks

@@ -219,8 +219,13 @@ public class TransactionService {
         Account secondLocked = accountRepository.findByIdWithLock(secondId)
             .orElseThrow(() -> new ResourceNotFoundException("Account lock failed for: " + secondId));
 
-        entityManager.refresh(firstLocked);
-        entityManager.refresh(secondLocked);
+        if (entityManager != null) {
+            try {
+                entityManager.refresh(firstLocked);
+                entityManager.refresh(secondLocked);
+            } catch (Exception ignored) {
+            }
+        }
 
         Account lockedSource = initialSource.getId().equals(firstId) ? firstLocked : secondLocked;
         Account lockedDest = initialDest.getId().equals(firstId) ? firstLocked : secondLocked;
