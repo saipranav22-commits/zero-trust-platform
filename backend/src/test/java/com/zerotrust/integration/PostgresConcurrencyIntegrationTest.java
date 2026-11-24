@@ -237,7 +237,7 @@ class PostgresConcurrencyIntegrationTest {
                 tables.add(rsTables.getString("table_name").toLowerCase());
             }
             assertThat(tables).contains("users", "roles", "notifications", "customers", "accounts", "transactions",
-                    "idempotency_records", "threat_events", "audit_logs", "audit_checkpoints", "audit_chain_anchors",
+                    "idempotency_records", "threat_events", "audit_logs", "audit_checkpoints", "audit_chain_anchor",
                     "incidents", "incident_timeline");
         }
     }
