@@ -17,7 +17,7 @@
 ## 📑 Table of Contents
 - [Executive Overview](#-executive-overview)
 - [System Architecture](#-system-architecture)
-- [Application Screenshots](#-application-screenshots)
+- [Video Demonstration & Application Gallery](#-video-demonstration--application-gallery)
 - [Project Structure](#-project-structure)
 - [Core Security Capabilities](#-core-security-capabilities)
   - [1. Context-Aware ABAC & Authorization Matrix](#1-context-aware-abac--authorization-matrix)
@@ -123,15 +123,86 @@ The Zero Trust Security Platform follows a layered architecture separating authe
 
 ---
 
-## 📸 Application Screenshots
+## 🎥 Video Demonstration & Application Gallery
 
-### 🔐 Login Page
+### 📺 Video Walkthrough (2m 17s)
+> 📺 **Watch the Technical Demonstration Video:** [https://youtu.be/Ga9kt-12LOE](https://youtu.be/Ga9kt-12LOE) *(2m 17s, English narration)*  
+>  
+> ℹ️ **Notice on Deployment:** SYVORA is an enterprise reference architecture and security demonstration project. The backend services (Spring Boot 3.3 API, PostgreSQL 16/18 database, and Redis 7 session store) and React dashboard are designed to run locally or in containerized environments (Docker Compose) and are **not publicly deployed** to any external cloud host.
 
+| Timestamp | Chapter | Description |
+| :---: | :--- | :--- |
+| **00:00** | Introduction & Zero Trust Tenets | Overview of SYVORA architecture and continuous verification model |
+| **00:12** | Multi-Tier Defense Pipeline | Ingress filtering, stateless JWT, Redis sliding-window & SHA-256 ledger |
+| **00:24** | Authentication & Role Tiers | Dual JWT tokens, Redis session revocation, and RBAC matrix |
+| **00:34** | Executive Security Dashboard | Real-time SSE telemetry, active threat monitoring, and transaction metrics |
+| **00:44** | Real-Time Threat Radar | In-line deep packet payload inspection for SQLi, XSS, and path traversal |
+| **00:55** | Forensic Incident Investigation | Correlation ID tracing, threat scoring, and client quarantine controls |
+| **01:05** | Controlled Threat Remediation | Real-time mitigation and HTTP 403 Forbidden attack blocking |
+| **01:15** | Real-Time Security Alerts | SSE push notifications ranked by CVSS severity and correlation tracing |
+| **01:25** | High-Concurrency Banking | PostgreSQL pessimistic row locking and Redis-backed idempotency protection |
+| **01:35** | Cryptographic Audit Ledger | SHA-256 rolling hash chain and database non-repudiation verification |
+| **01:45** | ABAC Least-Privilege Enforcement | Security Analyst scope and automated masking of customer PII and Tax IDs |
+| **01:55** | CI/CD Quality Verification | 151/151 automated tests passing on PostgreSQL 16/18 and Redis 7 in CI |
+| **02:06** | Architecture Summary | Architecture review and key capabilities summary |
+
+---
+
+## 📸 Application Screenshots Gallery
+
+### 1. 🔐 Authentication & Enterprise Role Separation
 <p align="center">
-  <img src="./login-page.png" alt="Login Page" width="900"/>
+  <img src="screenshots/01_login_page.png" alt="SYVORA Authentication Portal" width="950"/>
 </p>
+*Enterprise login interface implementing short-lived JWT access tokens and Redis-backed refresh token tracking for instantaneous session termination.*
 
-The platform provides secure authentication using JWT-based login with Role-Based Access Control (RBAC). Users can quickly authenticate with demo credentials or access secure endpoints.
+### 2. 📊 Executive Security Operations Dashboard
+<p align="center">
+  <img src="screenshots/02_admin_dashboard.png" alt="Security Operations Dashboard" width="950"/>
+</p>
+*Real-time security telemetry streamed via Server-Sent Events, continuously monitoring platform health, active sessions, and risk distribution.*
+
+### 3. 📡 Real-Time Threat Detection Radar
+<p align="center">
+  <img src="screenshots/03_threat_monitoring.png" alt="Threat Detection Radar" width="950"/>
+</p>
+*In-line bounded stream filter inspecting request bodies for SQL injection, cross-site scripting, and path traversal heuristics before controller execution.*
+
+### 4. 🔍 Forensic Incident Investigation & Containment
+<p align="center">
+  <img src="screenshots/04_incident_investigation.png" alt="Forensic Incident Investigation" width="950"/>
+</p>
+*Automated incident capture recording client IP, correlation ID, CVSS severity score, matched rules, and full request payload snapshots.*
+
+### 5. 🛑 Controlled Threat Remediation in Action
+<p align="center">
+  <img src="screenshots/08_controlled_threat_block.png" alt="Controlled Threat Block" width="950"/>
+</p>
+*Zero Trust enforcement in action: an in-flight SQL injection payload is intercepted and blocked with an HTTP 403 Forbidden response.*
+
+### 6. 🚨 Real-Time Security Alerts Feed
+<p align="center">
+  <img src="screenshots/07_security_alerts.png" alt="Security Alerts Feed" width="950"/>
+</p>
+*Categorized threat alerts pushed directly to security analysts via real-time SSE channels with correlation tracking for rapid triage.*
+
+### 7. 💳 High-Concurrency Financial Activity & Idempotency
+<p align="center">
+  <img src="screenshots/06_platform_activity_transactions.png" alt="Financial Platform Activity" width="950"/>
+</p>
+*ACID transaction safety enforced via PostgreSQL pessimistic locking (`PESSIMISTIC_WRITE`) and Redis-backed idempotency preventing double-spending.*
+
+### 8. 🔗 Tamper-Evident Monotonic Audit Hash Chain
+<p align="center">
+  <img src="screenshots/05_audit_verification.png" alt="Audit Hash Chain Verification" width="950"/>
+</p>
+*Cryptographic ledger linking every database modification to its predecessor via SHA-256 rolling hashes, providing mathematical non-repudiation.*
+
+### 9. 🛡️ Attribute-Based Access Control (ABAC) & PII Masking
+<p align="center">
+  <img src="screenshots/09_analyst_dashboard_rbac.png" alt="Analyst Dashboard RBAC/ABAC" width="950"/>
+</p>
+*Context-aware ABAC enforcement in the Security Analyst view: sensitive customer financial data and tax identifiers remain strictly masked.*
 
 ---
 
@@ -274,7 +345,7 @@ SYVORA is backed by a comprehensive automated test suite spanning unit, security
 ```text
 [INFO] Results:
 [INFO] 
-[INFO] Tests run: 143, Failures: 0, Errors: 0, Skipped: 0
+[INFO] Tests run: 151, Failures: 0, Errors: 0, Skipped: 0
 [INFO] 
 [INFO] ------------------------------------------------------------------------
 [INFO] BUILD SUCCESS
@@ -290,7 +361,8 @@ SYVORA is backed by a comprehensive automated test suite spanning unit, security
 | **Incident SOC** | `IncidentManagementIntegrationTest` | 5 | 5 | Lifecycle state transitions, invalid transition rejection, auto-promotion, deduplication |
 | **Encryption** | `CustomerEncryptionIntegrationTest` | 3 | 3 | Legacy plaintext backfill, unmasked employee ABAC denial, GCM round-trip |
 | **Threat Engine** | `ThreatInspectionIntegrationTest` | 10 | 10 | Bounded requests, SQLi, XSS, Path Traversal, Command Injection, 413 rejection |
-| **PostgreSQL 16 & Concurrency** | `PostgresConcurrencyIntegrationTest` | 6 | 6 | Live PostgreSQL 16 container, Flyway V1–V9 verification, deadlock-free opposing transfers, pessimistic row locks |
+| **PostgreSQL 16 & Concurrency** | `PostgresConcurrencyIntegrationTest` | 6 | 6 | Live PostgreSQL 16/18 container, Flyway V1–V9 verification, deadlock-free opposing transfers, pessimistic row locks |
+| **PostgreSQL Sensitive Audit** | `SensitiveCustomerPostgresIntegrationTest` | 4 | 4 | Real PostgreSQL integration: Admin sensitive access, Employee/Analyst 403 Forbidden denial, audit row persistence, hash chain validation |
 | **Financial Concurrency** | `FinancialConcurrencyAndRollbackIntegrationTest` | 3 | 3 | Atomic transfers, balance preservation under opposite concurrent transfers, overdrawing prevention |
 | **Idempotency** | `IdempotencyIntegrationTest` | 4 | 4 | Payload conflict detection, concurrent duplicate rejection, replay caching |
 | **Account & Txn Safety** | `AccountAndTransactionServiceTest` | 7 | 7 | Atomic transfers, entity refresh persistence exception propagation, ownership denial |
@@ -298,8 +370,9 @@ SYVORA is backed by a comprehensive automated test suite spanning unit, security
 | **ABAC & RBAC** | `AbacPolicyEnforcerTest` | 10 | 10 | Contextual risk-based denial, employee branch isolation, view masking |
 | **Security** | `RoleBasedAccessControlTest` | 6 | 6 | Route permissions, role enforcement, unauthorized access rejection |
 | **Controllers & Actuators** | `IncidentControllerTest`, `AuditControllerTest`, etc. | 62 | 62 | REST endpoints, DTO sanitization, SSE streams, pagination |
-| **Distributed Redis 7** | `RedisSecurityIntegrationTest` | 11 | 11 | Live Redis 7 container: multi-tier rate limiting, brute-force mitigation, fail-closed token revocation |
-| **Total (CI Automated)** | | **143** | **143** | **0 Failures, 0 Errors, 0 Skipped** |
+| **Distributed Redis 7** | `RedisSecurityIntegrationTest` | 12 | 12 | Live Redis 7 container: multi-tier rate limiting, brute-force mitigation, fail-closed token revocation, Actuator health status |
+| **Redis Health Check** | `RedisHealthIndicatorTest` | 3 | 3 | Resilient PING-based health indicator unit tests: UP on PONG, DOWN on connection exception, DOWN on unexpected payload |
+| **Total (CI Automated)** | | **151** | **151** | **0 Failures, 0 Errors, 0 Skipped** |
 
 ---
 
