@@ -116,4 +116,36 @@ class AbacPolicyEnforcerTest {
         assertThat(enforcer.isAllowed(employee1, unassigned, SecurityAction.READ, SecurityContext.standard())).isFalse();
         assertThat(enforcer.isAllowed(null, unassigned, SecurityAction.READ, SecurityContext.standard())).isFalse();
     }
+
+    @Test
+    @DisplayName("Contextual ABAC: Elevated environmental threat level blocks sensitive and state-modifying actions")
+    void elevatedContextBlocksSensitiveActions() {
+        SecurityResource resource = SecurityResource.of("CUSTOMER", "CUST-1", employee1Id);
+        SecurityContext elevatedContext = SecurityContext.of("198.51.100.99", "CRITICAL", 85);
+
+        // Even Admin is blocked from VIEW_SENSITIVE, DELETE, and EXECUTE_TRANSACTION under elevated threat
+        assertThat(enforcer.isAllowed(admin, resource, SecurityAction.VIEW_SENSITIVE, elevatedContext)).isFalse();
+        assertThat(enforcer.isAllowed(admin, resource, SecurityAction.DELETE, elevatedContext)).isFalse();
+        assertThat(enforcer.isAllowed(admin, resource, SecurityAction.EXECUTE_TRANSACTION, elevatedContext)).isFalse();
+
+        // But Admin is still allowed READ for incident triage
+        assertThat(enforcer.isAllowed(admin, resource, SecurityAction.READ, elevatedContext)).isTrue();
+    }
+
+    @Test
+    @DisplayName("Resource Sensitivity: CRITICAL risk customer profiles deny employee state-modifying actions")
+    void criticalRiskCustomerDeniesEmployeeModifications() {
+        // Customer profile classified as CRITICAL risk tier
+        SecurityResource criticalResource = SecurityResource.of("CUSTOMER", "CUST-CRIT-1", employee1Id, "CRITICAL");
+
+        // Employee can still read own customer
+        assertThat(enforcer.isAllowed(employee1, criticalResource, SecurityAction.READ, SecurityContext.standard())).isTrue();
+
+        // But Employee cannot perform UPDATE or EXECUTE_TRANSACTION on CRITICAL risk profiles without admin oversight
+        assertThat(enforcer.isAllowed(employee1, criticalResource, SecurityAction.UPDATE, SecurityContext.standard())).isFalse();
+        assertThat(enforcer.isAllowed(employee1, criticalResource, SecurityAction.EXECUTE_TRANSACTION, SecurityContext.standard())).isFalse();
+
+        // Admin can update CRITICAL risk profiles under normal context
+        assertThat(enforcer.isAllowed(admin, criticalResource, SecurityAction.UPDATE, SecurityContext.standard())).isTrue();
+    }
 }

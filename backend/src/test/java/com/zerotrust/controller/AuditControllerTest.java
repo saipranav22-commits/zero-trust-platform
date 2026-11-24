@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.Instant;
 import java.util.UUID;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -85,5 +86,21 @@ class AuditControllerTest {
             .andExpect(jsonPath("$.message").value("Audit log not found: " + missingId));
 
         verify(auditService).getById(missingId);
+    }
+
+    @Test
+    @DisplayName("GET /api/audit/chain/verify should return chain integrity verification result")
+    void shouldReturnChainVerificationResult() throws Exception {
+        com.zerotrust.dto.response.AuditChainVerificationResult result =
+                com.zerotrust.dto.response.AuditChainVerificationResult.success(10, 1L, 10L);
+
+        when(auditService.verifyChain(any(), any())).thenReturn(result);
+
+        mockMvc.perform(get("/api/audit/chain/verify")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.chainValid").value(true))
+                .andExpect(jsonPath("$.data.totalRecordsVerified").value(10));
     }
 }

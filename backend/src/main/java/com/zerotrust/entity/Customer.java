@@ -24,6 +24,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class Customer {
 
     @Id
@@ -64,9 +65,12 @@ public class Customer {
 
     /**
      * Synthetic Tax Identifier (e.g., SYN-***-1234).
-     * Protected sensitive attribute requiring field-level masking.
+     * Protected sensitive attribute encrypted at rest via AES-256-GCM.
+     * Excluded from toString() to prevent accidental plaintext exposure in application logs.
      */
-    @Column(nullable = false, length = 50)
+    @ToString.Exclude
+    @Convert(converter = com.zerotrust.security.crypto.EncryptedStringConverter.class)
+    @Column(nullable = false, length = 255)
     private String syntheticTaxId;
 
     @Column(precision = 15, scale = 2)

@@ -124,4 +124,31 @@ class CustomerControllerTest {
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.fieldErrors").exists());
     }
+
+    @Test
+    @DisplayName("GET /api/customers/{id}/sensitive returns decrypted tax ID for authorized subject")
+    void shouldReturnDecryptedTaxIdForAuthorizedSubject() throws Exception {
+        when(customerService.getSensitiveCustomerData(eq(customerId), any(SecuritySubject.class), any()))
+            .thenReturn("SYN-9876-5432");
+
+        mockMvc.perform(get("/api/customers/" + customerId + "/sensitive")
+                .requestAttr("userId", employeeId.toString()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.syntheticTaxId").value("SYN-9876-5432"));
+    }
+
+    @Test
+    @DisplayName("GET /api/customers/{id}/sensitive returns HTTP 403 when ABAC VIEW_SENSITIVE policy denies")
+    void shouldReturn403WhenSensitiveViewingDenied() throws Exception {
+        when(customerService.getSensitiveCustomerData(eq(customerId), any(SecuritySubject.class), any()))
+            .thenThrow(new AccessDeniedException("Access Denied: Subject is not authorized to perform action [VIEW_SENSITIVE]"));
+
+        mockMvc.perform(get("/api/customers/" + customerId + "/sensitive")
+                .requestAttr("userId", employeeId.toString()))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.success").value(false))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.message").value("Access denied: insufficient permissions"));
+    }
 }

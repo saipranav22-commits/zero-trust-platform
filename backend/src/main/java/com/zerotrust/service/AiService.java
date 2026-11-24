@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
@@ -145,6 +144,82 @@ public class AiService {
             targetResource, detectionRule, attackPayload);
 
         return callGeminiApi(prompt);
+    }
+
+    /**
+     * Generates a tactical AI mitigation and containment plan for a security incident.
+     * Sanitizes inputs so no credentials, tokens, or raw confidential customer data are sent.
+     */
+    public String explainIncident(String incidentNumber, String title, String category,
+                                  String severity, String sourceIp, String targetResource,
+                                  String status, List<String> timelineSummaries) {
+        if (!aiEnabled || geminiApiKey == null || geminiApiKey.isBlank()) {
+            return buildRuleBasedIncidentExplanation(incidentNumber, title, category, severity, sourceIp, targetResource);
+        }
+
+        String timelineText = (timelineSummaries != null && !timelineSummaries.isEmpty())
+                ? String.join("\n- ", timelineSummaries)
+                : "No timeline events recorded yet.";
+
+        String prompt = String.format("""
+            %s
+            
+            === SECURITY INCIDENT ANALYSIS REQUEST ===
+            You are a Principal Security Operations Center (SOC) Analyst.
+            Analyze the following security incident and generate a tactical mitigation and containment plan.
+            
+            Incident Number: %s
+            Title: %s
+            Category: %s
+            Severity: %s
+            Source IP: %s
+            Target Resource: %s
+            Current Status: %s
+            
+            Incident Timeline Events:
+            - %s
+            
+            Provide:
+            1. INCIDENT SYNOPSIS: High-level overview of the incident and threat vector
+            2. POTENTIAL BLAST RADIUS & IMPACT: Risks to confidentiality, integrity, and availability
+            3. CONTAINMENT & MITIGATION CHECKLIST: Prioritized immediate actions for the assigned analyst
+            4. INVESTIGATION & FORENSIC RECOMMENDATIONS: What logs and evidence to verify
+            5. POST-INCIDENT REMEDIATION: Long-term hardening steps to prevent recurrence
+            
+            Notice: Do not generate code that executes arbitrary commands. Do not authorize policy bypass.
+            """,
+                SECURITY_KNOWLEDGE_BASE, incidentNumber, title, category, severity,
+                sourceIp != null ? sourceIp : "Unknown",
+                targetResource != null ? targetResource : "Unknown",
+                status, timelineText);
+
+        return callGeminiApi(prompt);
+    }
+
+    private String buildRuleBasedIncidentExplanation(String incidentNumber, String title, String category,
+                                                     String severity, String sourceIp, String targetResource) {
+        return String.format("""
+            === SYVORA SOC INCIDENT BRIEF [%s] ===
+            
+            1. INCIDENT SYNOPSIS:
+            Incident %s (%s) flagged with %s severity targeting resource '%s' from IP %s.
+            Category: %s.
+            
+            2. POTENTIAL IMPACT:
+            Elevated risk of unauthorized API access, automated exploitation, or policy violation.
+            Attackers from %s may be probing endpoints for injection vulnerabilities or credential leakage.
+            
+            3. IMMEDIATE CONTAINMENT ACTIONS:
+            - Verify if source IP %s is actively blocked in rate limiter or WAF tier.
+            - Review recent audit trail logs for user activity associated with this IP.
+            - Confirm target resource '%s' enforces strict contextual ABAC policy checks.
+            - Transition incident state to INVESTIGATING and assign to a security analyst.
+            
+            4. POST-INCIDENT VERIFICATION:
+            - Ensure all related threat events have been reviewed.
+            - Verify SHA-256 audit-chain continuity on /api/audit/chain/verify.
+            - Document root cause in resolution notes prior to closing.
+            """, incidentNumber, incidentNumber, title, severity, targetResource, sourceIp, category, sourceIp, sourceIp, targetResource);
     }
 
     /**

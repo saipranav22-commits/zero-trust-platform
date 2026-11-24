@@ -1,16 +1,42 @@
-name: Zero Trust Platform CI/CD
+name: SYVORA Zero Trust CI/CD
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, 'release/**' ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ main, master, develop, 'release/**' ]
 
 jobs:
-  # ─── 1. Build and Test Backend (Spring Boot) ─────────────────
-  build-backend:
-    name: Build & Test Backend
+  # ─── 1. Backend Verification (Spring Boot + PostgreSQL 16 + Redis 7) ────
+  backend-test:
+    name: Backend CI (Java 21, Postgres 16, Redis 7)
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: zerotrust_db
+          POSTGRES_USER: zerotrust
+          POSTGRES_PASSWORD: zerotrust123
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -22,19 +48,29 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      - name: Build with Maven
+      - name: Run Backend Tests with Real Postgres & Redis
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/zerotrust_db
+          SPRING_DATASOURCE_USERNAME: zerotrust
+          SPRING_DATASOURCE_PASSWORD: zerotrust123
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: "test-jwt-secret-key-for-unit-testing-purposes-must-be-at-least-256-bits-long"
+          ENCRYPTION_KEY: "k+u7V2Xg4qH8lK9pY0rW3tU6yI8oP1aS4dF7gJ0kM3o="
         run: |
           cd backend
-          mvn -B clean package
+          mvn -B clean verify
 
-      - name: Docker Build Test (Backend)
-        run: |
-          cd backend
-          docker build -t zerotrust-backend:test .
+      - name: Upload Surefire Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
 
-  # ─── 2. Build and Test Frontend (React) ──────────────────────
-  build-frontend:
-    name: Build & Test Frontend
+  # ─── 2. Frontend Verification (React + TypeScript + Vite) ───────────────
+  frontend-test:
+    name: Frontend CI (Node 20, TypeScript, Production Build)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -52,12 +88,31 @@ jobs:
           cd frontend
           npm ci
 
-      - name: Build Frontend
+      - name: Frontend Typecheck and Build
         run: |
           cd frontend
           npm run build
 
-      - name: Docker Build Test (Frontend)
+  # ─── 3. Docker Compose & Packaging Validation ───────────────────────────
+  docker-validation:
+    name: Docker & Compose Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose Configuration
+        env:
+          JWT_SECRET: "ci-test-jwt-secret-with-minimum-256-bits-length-32-bytes"
+          ENCRYPTION_KEY: "k+u7V2Xg4qH8lK9pY0rW3tU6yI8oP1aS4dF7gJ0kM3o="
+          POSTGRES_PASSWORD: "ci-postgres-password-123"
         run: |
-          cd frontend
-          docker build -t zerotrust-frontend:test .
+          docker compose config --quiet
+
+      - name: Build Backend Docker Image
+        run: |
+          docker build -t syvora-backend:ci backend/
+
+      - name: Build Frontend Docker Image
+        run: |
+          docker build -t syvora-frontend:ci frontend/

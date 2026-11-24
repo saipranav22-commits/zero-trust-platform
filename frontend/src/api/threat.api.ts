@@ -38,6 +38,36 @@ export const threatApi = {
   },
 }
 
+export const incidentApi = {
+  getIncidents: async (params: {
+    search?: string; status?: string; severity?: string
+    category?: string; assignedTo?: string; page?: number; size?: number
+  }): Promise<PageResponse<import('@/types').Incident>> => {
+    const res = await api.get<ApiResponse<PageResponse<import('@/types').Incident>>>('/incidents', { params })
+    return res.data.data
+  },
+
+  getIncidentById: async (id: string): Promise<import('@/types').Incident> => {
+    const res = await api.get<ApiResponse<import('@/types').Incident>>(`/incidents/${id}`)
+    return res.data.data
+  },
+
+  updateStatus: async (id: string, status: string, notes?: string): Promise<import('@/types').Incident> => {
+    const res = await api.put<ApiResponse<import('@/types').Incident>>(`/incidents/${id}/status`, { status, notes })
+    return res.data.data
+  },
+
+  assign: async (id: string, assignedTo: string, notes?: string): Promise<import('@/types').Incident> => {
+    const res = await api.put<ApiResponse<import('@/types').Incident>>(`/incidents/${id}/assign`, { assignedTo, notes })
+    return res.data.data
+  },
+
+  addNote: async (id: string, notes: string): Promise<import('@/types').Incident> => {
+    const res = await api.post<ApiResponse<import('@/types').Incident>>(`/incidents/${id}/notes`, { notes })
+    return res.data.data
+  },
+}
+
 export const auditApi = {
   getLogs: async (params: {
     userId?: string; action?: string; status?: string
@@ -65,6 +95,23 @@ export const auditApi = {
     )
     return res.data.data
   },
+
+  verifyChain: async (fromSeq?: number, toSeq?: number): Promise<import('@/types').AuditChainVerificationResult> => {
+    const res = await api.get<ApiResponse<import('@/types').AuditChainVerificationResult>>('/audit/chain/verify', {
+      params: { fromSeq, toSeq }
+    })
+    return res.data.data
+  },
+
+  createCheckpoint: async (): Promise<import('@/types').AuditCheckpoint> => {
+    const res = await api.post<ApiResponse<import('@/types').AuditCheckpoint>>('/audit/chain/checkpoint')
+    return res.data.data
+  },
+
+  getCheckpoints: async (): Promise<import('@/types').AuditCheckpoint[]> => {
+    const res = await api.get<ApiResponse<import('@/types').AuditCheckpoint[]>>('/audit/chain/checkpoints')
+    return res.data.data
+  },
 }
 
 export const aiApi = {
@@ -81,6 +128,20 @@ export const aiApi = {
       attackPayload: threat.attackPayload,
       detectionRule: threat.detectionRule,
       targetResource: threat.targetResource,
+    })
+    return res.data.data
+  },
+
+  explainIncident: async (incident: import('@/types').Incident): Promise<{ incidentNumber: string; explanation: string }> => {
+    const res = await api.post<ApiResponse<{ incidentNumber: string; explanation: string }>>('/ai/explain-incident', {
+      incidentNumber: incident.incidentNumber,
+      title: incident.title,
+      category: incident.category,
+      severity: incident.severity,
+      sourceIp: incident.sourceIp,
+      targetResource: incident.targetResource,
+      status: incident.status,
+      timeline: incident.timeline?.map(t => `${t.action} by ${t.performedBy}: ${t.notes || ''}`) || []
     })
     return res.data.data
   },

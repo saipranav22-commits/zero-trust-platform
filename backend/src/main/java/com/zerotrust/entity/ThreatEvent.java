@@ -66,6 +66,17 @@ public class ThreatEvent {
     @Builder.Default
     private ThreatStatus status = ThreatStatus.DETECTED;
 
+    @Column(length = 64)
+    private String correlationId;
+
+    @Column(length = 20)
+    @Builder.Default
+    private String actionTaken = "DETECTED";
+
+    @Column
+    @Builder.Default
+    private Integer riskScore = 0;
+
     @Column(length = 255)
     private String resolvedBy;
 

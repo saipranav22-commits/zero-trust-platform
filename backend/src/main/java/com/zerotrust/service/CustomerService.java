@@ -128,6 +128,30 @@ public class CustomerService {
         return new CustomerDetailResponse(CustomerResponse.from(customer), accounts);
     }
 
+    @Transactional(readOnly = true)
+    public String getSensitiveCustomerData(UUID id, SecuritySubject subject, SecurityContext context) {
+        Customer customer = findEntityById(id);
+
+        // Object-level authorization check: VIEW_SENSITIVE policy evaluation
+        SecurityResource resource = SecurityResource.of("CUSTOMER", id.toString(), customer.getAssignedEmployeeId(), customer.getRiskTier().name());
+        abacPolicyEnforcer.enforce(subject, resource, SecurityAction.VIEW_SENSITIVE, context);
+
+        auditService.log(
+            subject.userId() != null ? subject.userId().toString() : "UNKNOWN",
+            subject.email(),
+            "VIEW_SENSITIVE_DATA",
+            "CUSTOMER",
+            id.toString(),
+            context != null ? context.sourceIp() : "127.0.0.1",
+            "Syvora-Core",
+            AuditStatus.SUCCESS,
+            0,
+            "Decrypted sensitive synthetic tax ID retrieved for customer " + customer.getCustomerNumber()
+        );
+
+        return customer.getSyntheticTaxId();
+    }
+
     @Transactional
     public CustomerResponse createCustomer(CustomerCreateRequest request, SecuritySubject subject) {
         // Enforce CREATE permission
@@ -180,12 +204,12 @@ public class CustomerService {
     }
 
     @Transactional
-    public CustomerResponse updateCustomer(UUID id, CustomerUpdateRequest request, SecuritySubject subject) {
+    public CustomerResponse updateCustomer(UUID id, CustomerUpdateRequest request, SecuritySubject subject, SecurityContext context) {
         Customer customer = findEntityById(id);
 
         // Object-level authorization check
         SecurityResource resource = SecurityResource.of("CUSTOMER", id.toString(), customer.getAssignedEmployeeId(), customer.getRiskTier().name());
-        abacPolicyEnforcer.enforce(subject, resource, SecurityAction.UPDATE, SecurityContext.standard());
+        abacPolicyEnforcer.enforce(subject, resource, SecurityAction.UPDATE, context != null ? context : SecurityContext.standard());
 
         if (request.firstName() != null) customer.setFirstName(request.firstName());
         if (request.lastName() != null) customer.setLastName(request.lastName());
@@ -228,12 +252,17 @@ public class CustomerService {
     }
 
     @Transactional
-    public void deleteCustomer(UUID id, SecuritySubject subject) {
+    public CustomerResponse updateCustomer(UUID id, CustomerUpdateRequest request, SecuritySubject subject) {
+        return updateCustomer(id, request, subject, SecurityContext.standard());
+    }
+
+    @Transactional
+    public void deleteCustomer(UUID id, SecuritySubject subject, SecurityContext context) {
         Customer customer = findEntityById(id);
 
         // Object-level authorization check: only Admin can delete
         SecurityResource resource = SecurityResource.of("CUSTOMER", id.toString(), customer.getAssignedEmployeeId(), customer.getRiskTier().name());
-        abacPolicyEnforcer.enforce(subject, resource, SecurityAction.DELETE, SecurityContext.standard());
+        abacPolicyEnforcer.enforce(subject, resource, SecurityAction.DELETE, context != null ? context : SecurityContext.standard());
 
         customerRepository.delete(customer);
 
@@ -249,6 +278,11 @@ public class CustomerService {
             10,
             "Deleted customer: " + customer.getCustomerNumber()
         );
+    }
+
+    @Transactional
+    public void deleteCustomer(UUID id, SecuritySubject subject) {
+        deleteCustomer(id, subject, SecurityContext.standard());
     }
 
     public Customer findEntityById(UUID id) {

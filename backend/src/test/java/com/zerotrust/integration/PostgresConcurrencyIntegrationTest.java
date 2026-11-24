@@ -52,36 +52,92 @@ class PostgresConcurrencyIntegrationTest {
     private static PostgreSQLContainer<?> testcontainersPostgres;
     private static String activePostgresJdbcUrl;
     private static boolean postgresAvailable = false;
+    private static String postgresUser = "zerotrust";
+    private static String postgresPassword = "zerotrust123";
 
     @BeforeAll
     static void initPostgres() {
-        // 1. Try Testcontainers first if supported by host Docker environment
-        try {
-            if (DockerClientFactory.instance().isDockerAvailable()) {
-                testcontainersPostgres = new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("zerotrust_test")
-                    .withUsername("zerotrust")
-                    .withPassword("zerotrust123");
-                testcontainersPostgres.start();
-                activePostgresJdbcUrl = testcontainersPostgres.getJdbcUrl();
-                postgresAvailable = true;
-            }
-        } catch (Throwable ignored) {
-            // Testcontainers transport issue on Windows
+        if (postgresAvailable) {
+            return;
         }
 
-        // 2. If Testcontainers did not bind, check for Docker-spawned PostgreSQL 16 on port 5438
+        // 1. Check if external or CI PostgreSQL URL is provided via environment
+        String envUrl = System.getenv("SPRING_DATASOURCE_URL");
+        if (envUrl != null && envUrl.startsWith("jdbc:postgresql://")) {
+            String host = System.getenv("POSTGRES_HOST") != null ? System.getenv("POSTGRES_HOST") : "127.0.0.1";
+            int port = 5432;
+            try {
+                String clean = envUrl.substring("jdbc:postgresql://".length());
+                int slashIdx = clean.indexOf('/');
+                String hostPort = slashIdx > 0 ? clean.substring(0, slashIdx) : clean;
+                int colonIdx = hostPort.indexOf(':');
+                if (colonIdx > 0) {
+                    host = hostPort.substring(0, colonIdx);
+                    port = Integer.parseInt(hostPort.substring(colonIdx + 1));
+                } else if (!hostPort.isBlank()) {
+                    host = hostPort;
+                }
+            } catch (Exception ignored) {
+            }
+
+            try (Socket socket = new Socket(host, port)) {
+                activePostgresJdbcUrl = envUrl;
+                if (System.getenv("SPRING_DATASOURCE_USERNAME") != null) {
+                    postgresUser = System.getenv("SPRING_DATASOURCE_USERNAME");
+                }
+                if (System.getenv("SPRING_DATASOURCE_PASSWORD") != null) {
+                    postgresPassword = System.getenv("SPRING_DATASOURCE_PASSWORD");
+                }
+                postgresAvailable = true;
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 2. Check standard port 5432 (GitHub Actions service container or local postgres)
+        if (!postgresAvailable) {
+            try (Socket socket = new Socket("127.0.0.1", 5432)) {
+                activePostgresJdbcUrl = "jdbc:postgresql://127.0.0.1:5432/zerotrust_db";
+                postgresAvailable = true;
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 3. Check isolated container port 5438
         if (!postgresAvailable) {
             try (Socket socket = new Socket("127.0.0.1", 5438)) {
                 activePostgresJdbcUrl = "jdbc:postgresql://127.0.0.1:5438/zerotrust_test";
                 postgresAvailable = true;
             } catch (Exception ignored) {
-                postgresAvailable = false;
             }
         }
 
+        // 4. Try Testcontainers if Docker is available on host
+        if (!postgresAvailable) {
+            try {
+                if (DockerClientFactory.instance().isDockerAvailable()) {
+                    testcontainersPostgres = new PostgreSQLContainer<>("postgres:16-alpine")
+                            .withDatabaseName("zerotrust_test")
+                            .withUsername("zerotrust")
+                            .withPassword("zerotrust123");
+                    testcontainersPostgres.start();
+                    activePostgresJdbcUrl = testcontainersPostgres.getJdbcUrl();
+                    postgresAvailable = true;
+                }
+            } catch (Throwable ignored) {
+                // Testcontainers transport issue on Windows
+            }
+        }
+
+        boolean isCI = "true".equalsIgnoreCase(System.getenv("CI"))
+                || "true".equalsIgnoreCase(System.getenv("GITHUB_ACTIONS"));
+        if (isCI && !postgresAvailable) {
+            org.junit.jupiter.api.Assertions.fail(
+                    "CRITICAL CI FAILURE: PostgreSQL 16 service container is required in CI but is not reachable. " +
+                    "Check GitHub Actions service container health and network configuration.");
+        }
+
         assumeTrue(postgresAvailable,
-            "SKIPPED / BLOCKED: PostgreSQL 16 container is not accessible. Docker Desktop or isolated container required.");
+                "SKIPPED / BLOCKED: PostgreSQL 16 container is not accessible. Docker Desktop or isolated container required.");
     }
 
     @DynamicPropertySource
@@ -90,8 +146,8 @@ class PostgresConcurrencyIntegrationTest {
         if (postgresAvailable && activePostgresJdbcUrl != null) {
             registry.add("spring.datasource.url", () -> activePostgresJdbcUrl);
             registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
-            registry.add("spring.datasource.username", () -> "zerotrust");
-            registry.add("spring.datasource.password", () -> "zerotrust123");
+            registry.add("spring.datasource.username", () -> postgresUser);
+            registry.add("spring.datasource.password", () -> postgresPassword);
             registry.add("spring.flyway.enabled", () -> "true");
             registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
             registry.add("spring.jpa.properties.hibernate.dialect", () -> "org.hibernate.dialect.PostgreSQLDialect");
@@ -130,14 +186,14 @@ class PostgresConcurrencyIntegrationTest {
         adminSubject = new SecuritySubject(adminUserId, "admin@zerotrust.com", Set.of("ROLE_ADMIN"), Map.of());
 
         testCustomer = Customer.builder()
-            .customerNumber("CUST-PG16-" + UUID.randomUUID().toString().substring(0, 6))
-            .firstName("Postgres16")
-            .lastName("Customer")
-            .email("pg16." + UUID.randomUUID().toString().substring(0, 6) + "@zerotrust.com")
-            .syntheticTaxId("SYN-999-1234")
-            .annualIncome(new BigDecimal("120000.00"))
-            .creditScore(780)
-            .build();
+                .customerNumber("CUST-PG16-" + UUID.randomUUID().toString().substring(0, 6))
+                .firstName("Postgres16")
+                .lastName("Customer")
+                .email("pg16." + UUID.randomUUID().toString().substring(0, 6) + "@zerotrust.com")
+                .syntheticTaxId("SYN-999-1234")
+                .annualIncome(new BigDecimal("120000.00"))
+                .creditScore(780)
+                .build();
         testCustomer = customerRepository.save(testCustomer);
     }
 
@@ -147,8 +203,8 @@ class PostgresConcurrencyIntegrationTest {
     void shouldVerifyPostgres16AndFlywayMigrations() throws Exception {
         assertThat(activePostgresJdbcUrl).isNotNull();
 
-        try (Connection conn = DriverManager.getConnection(activePostgresJdbcUrl, "zerotrust", "zerotrust123");
-             Statement stmt = conn.createStatement()) {
+        try (Connection conn = DriverManager.getConnection(activePostgresJdbcUrl, postgresUser, postgresPassword);
+                Statement stmt = conn.createStatement()) {
 
             // Verify PostgreSQL 16
             ResultSet rsVer = stmt.executeQuery("SELECT version();");
@@ -156,24 +212,26 @@ class PostgresConcurrencyIntegrationTest {
             String versionStr = rsVer.getString(1);
             assertThat(versionStr).contains("PostgreSQL 16");
 
-            // Verify Flyway schema history contains all 4 migrations
-            ResultSet rsFlyway = stmt.executeQuery("SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;");
+            // Verify Flyway schema history contains all migrations
+            ResultSet rsFlyway = stmt.executeQuery(
+                    "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank;");
             int migrationCount = 0;
             while (rsFlyway.next()) {
                 migrationCount++;
                 assertThat(rsFlyway.getBoolean("success")).isTrue();
             }
-            assertThat(migrationCount).isGreaterThanOrEqualTo(4);
+            assertThat(migrationCount).isGreaterThanOrEqualTo(9);
 
             // Verify tables exist in PostgreSQL
             ResultSet rsTables = stmt.executeQuery(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';"
-            );
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public';");
             Set<String> tables = new java.util.HashSet<>();
             while (rsTables.next()) {
                 tables.add(rsTables.getString("table_name").toLowerCase());
             }
-            assertThat(tables).contains("users", "roles", "notifications", "customers", "accounts", "transactions", "idempotency_records");
+            assertThat(tables).contains("users", "roles", "notifications", "customers", "accounts", "transactions",
+                    "idempotency_records", "threat_events", "audit_logs", "audit_checkpoints", "audit_chain_anchors",
+                    "incidents", "incident_timeline");
         }
     }
 
@@ -182,13 +240,13 @@ class PostgresConcurrencyIntegrationTest {
     @DisplayName("Step 3: Test ten simultaneous withdrawals exceeding available funds on PostgreSQL 16")
     void shouldPreventOverspendingUnderConcurrentWithdrawalsOnPostgres() throws Exception {
         Account account = Account.builder()
-            .customer(testCustomer)
-            .accountNumber("ACC-PG-WITHDRAW-" + UUID.randomUUID().toString().substring(0, 6))
-            .accountType(AccountType.CHECKING)
-            .balance(new BigDecimal("500.00"))
-            .currency("USD")
-            .status(AccountStatus.ACTIVE)
-            .build();
+                .customer(testCustomer)
+                .accountNumber("ACC-PG-WITHDRAW-" + UUID.randomUUID().toString().substring(0, 6))
+                .accountType(AccountType.CHECKING)
+                .balance(new BigDecimal("500.00"))
+                .currency("USD")
+                .status(AccountStatus.ACTIVE)
+                .build();
         account = accountRepository.save(account);
         final UUID accId = account.getId();
 
@@ -206,8 +264,7 @@ class PostgresConcurrencyIntegrationTest {
                 try {
                     startLatch.await();
                     TransactionCreateRequest req = new TransactionCreateRequest(
-                        accId, withdrawalAmount, TransactionType.WITHDRAWAL, "PG16 Concurrent Withdrawal", null
-                    );
+                            accId, withdrawalAmount, TransactionType.WITHDRAWAL, "PG16 Concurrent Withdrawal", null);
                     transactionService.executeTransaction(req, adminSubject);
                     successCount.incrementAndGet();
                 } catch (ValidationException e) {
@@ -237,23 +294,23 @@ class PostgresConcurrencyIntegrationTest {
     @DisplayName("Step 3: Test opposing transfers between two accounts on PostgreSQL 16 (deadlock prevention)")
     void shouldPreventDeadlockOnOpposingConcurrentTransfersOnPostgres() throws Exception {
         Account accountA = Account.builder()
-            .customer(testCustomer)
-            .accountNumber("ACC-PG-A-" + UUID.randomUUID().toString().substring(0, 4))
-            .accountType(AccountType.CHECKING)
-            .balance(new BigDecimal("1000.00"))
-            .currency("USD")
-            .status(AccountStatus.ACTIVE)
-            .build();
+                .customer(testCustomer)
+                .accountNumber("ACC-PG-A-" + UUID.randomUUID().toString().substring(0, 4))
+                .accountType(AccountType.CHECKING)
+                .balance(new BigDecimal("1000.00"))
+                .currency("USD")
+                .status(AccountStatus.ACTIVE)
+                .build();
         accountA = accountRepository.save(accountA);
 
         Account accountB = Account.builder()
-            .customer(testCustomer)
-            .accountNumber("ACC-PG-B-" + UUID.randomUUID().toString().substring(0, 4))
-            .accountType(AccountType.CHECKING)
-            .balance(new BigDecimal("1000.00"))
-            .currency("USD")
-            .status(AccountStatus.ACTIVE)
-            .build();
+                .customer(testCustomer)
+                .accountNumber("ACC-PG-B-" + UUID.randomUUID().toString().substring(0, 4))
+                .accountType(AccountType.CHECKING)
+                .balance(new BigDecimal("1000.00"))
+                .currency("USD")
+                .status(AccountStatus.ACTIVE)
+                .build();
         accountB = accountRepository.save(accountB);
 
         final UUID idA = accountA.getId();
@@ -272,8 +329,7 @@ class PostgresConcurrencyIntegrationTest {
                 startLatch.await();
                 for (int i = 0; i < iterations; i++) {
                     TransactionCreateRequest req = new TransactionCreateRequest(
-                        idA, new BigDecimal("10.00"), TransactionType.TRANSFER, "A to B", numB
-                    );
+                            idA, new BigDecimal("10.00"), TransactionType.TRANSFER, "A to B", numB);
                     transactionService.executeTransaction(req, adminSubject);
                     successfulTransfers.incrementAndGet();
                 }
@@ -288,8 +344,7 @@ class PostgresConcurrencyIntegrationTest {
                 startLatch.await();
                 for (int i = 0; i < iterations; i++) {
                     TransactionCreateRequest req = new TransactionCreateRequest(
-                        idB, new BigDecimal("10.00"), TransactionType.TRANSFER, "B to A", numA
-                    );
+                            idB, new BigDecimal("10.00"), TransactionType.TRANSFER, "B to A", numA);
                     transactionService.executeTransaction(req, adminSubject);
                     successfulTransfers.incrementAndGet();
                 }
@@ -317,37 +372,40 @@ class PostgresConcurrencyIntegrationTest {
     @DisplayName("Step 2 & 3: Test duplicate transfers using identical idempotency keys on PostgreSQL 16")
     void shouldPreventDuplicateTransfersWithIdenticalIdempotencyKeyOnPostgres() throws Exception {
         Account source = Account.builder()
-            .customer(testCustomer)
-            .accountNumber("ACC-IDEMP-SRC-" + UUID.randomUUID().toString().substring(0, 4))
-            .accountType(AccountType.CHECKING)
-            .balance(new BigDecimal("1000.00"))
-            .currency("USD")
-            .status(AccountStatus.ACTIVE)
-            .build();
+                .customer(testCustomer)
+                .accountNumber("ACC-IDEMP-SRC-" + UUID.randomUUID().toString().substring(0, 4))
+                .accountType(AccountType.CHECKING)
+                .balance(new BigDecimal("1000.00"))
+                .currency("USD")
+                .status(AccountStatus.ACTIVE)
+                .build();
         source = accountRepository.save(source);
 
         Account dest = Account.builder()
-            .customer(testCustomer)
-            .accountNumber("ACC-IDEMP-DST-" + UUID.randomUUID().toString().substring(0, 4))
-            .accountType(AccountType.CHECKING)
-            .balance(new BigDecimal("200.00"))
-            .currency("USD")
-            .status(AccountStatus.ACTIVE)
-            .build();
+                .customer(testCustomer)
+                .accountNumber("ACC-IDEMP-DST-" + UUID.randomUUID().toString().substring(0, 4))
+                .accountType(AccountType.CHECKING)
+                .balance(new BigDecimal("200.00"))
+                .currency("USD")
+                .status(AccountStatus.ACTIVE)
+                .build();
         dest = accountRepository.save(dest);
 
         String idempotencyKey = "IDEMP-KEY-" + UUID.randomUUID();
         TransactionCreateRequest request = new TransactionCreateRequest(
-            source.getId(), new BigDecimal("150.00"), TransactionType.TRANSFER, "Idempotent transfer test", dest.getAccountNumber()
-        );
+                source.getId(), new BigDecimal("150.00"), TransactionType.TRANSFER, "Idempotent transfer test",
+                dest.getAccountNumber());
 
         // First execution
-        TransactionResponse firstResponse = transactionService.executeTransaction(request, adminSubject, idempotencyKey);
+        TransactionResponse firstResponse = transactionService.executeTransaction(request, adminSubject,
+                idempotencyKey);
         assertThat(firstResponse).isNotNull();
         assertThat(firstResponse.amount()).isEqualByComparingTo("150.00");
 
-        // Second execution with identical key and payload: must replay cached response without duplicate debit
-        TransactionResponse replayedResponse = transactionService.executeTransaction(request, adminSubject, idempotencyKey);
+        // Second execution with identical key and payload: must replay cached response
+        // without duplicate debit
+        TransactionResponse replayedResponse = transactionService.executeTransaction(request, adminSubject,
+                idempotencyKey);
         assertThat(replayedResponse).isNotNull();
         assertThat(replayedResponse.referenceNumber()).isEqualTo(firstResponse.referenceNumber());
         assertThat(replayedResponse.correlationId()).isEqualTo(firstResponse.correlationId());
@@ -364,28 +422,25 @@ class PostgresConcurrencyIntegrationTest {
     @DisplayName("Step 2: Reusing identical key with different payload must fail with conflict on PostgreSQL 16")
     void shouldRejectDifferingPayloadWithSameKeyOnPostgres() {
         Account source = Account.builder()
-            .customer(testCustomer)
-            .accountNumber("ACC-CONFLICT-" + UUID.randomUUID().toString().substring(0, 4))
-            .accountType(AccountType.CHECKING)
-            .balance(new BigDecimal("1000.00"))
-            .currency("USD")
-            .status(AccountStatus.ACTIVE)
-            .build();
+                .customer(testCustomer)
+                .accountNumber("ACC-CONFLICT-" + UUID.randomUUID().toString().substring(0, 4))
+                .accountType(AccountType.CHECKING)
+                .balance(new BigDecimal("1000.00"))
+                .currency("USD")
+                .status(AccountStatus.ACTIVE)
+                .build();
         source = accountRepository.save(source);
 
         String idempotencyKey = "IDEMP-CONFLICT-" + UUID.randomUUID();
         TransactionCreateRequest request1 = new TransactionCreateRequest(
-            source.getId(), new BigDecimal("50.00"), TransactionType.DEPOSIT, "Initial", null
-        );
+                source.getId(), new BigDecimal("50.00"), TransactionType.DEPOSIT, "Initial", null);
         TransactionCreateRequest request2 = new TransactionCreateRequest(
-            source.getId(), new BigDecimal("99.00"), TransactionType.DEPOSIT, "Altered amount", null
-        );
+                source.getId(), new BigDecimal("99.00"), TransactionType.DEPOSIT, "Altered amount", null);
 
         transactionService.executeTransaction(request1, adminSubject, idempotencyKey);
 
-        org.junit.jupiter.api.Assertions.assertThrows(ValidationException.class, () ->
-            transactionService.executeTransaction(request2, adminSubject, idempotencyKey)
-        );
+        org.junit.jupiter.api.Assertions.assertThrows(ValidationException.class,
+                () -> transactionService.executeTransaction(request2, adminSubject, idempotencyKey));
     }
 
     @Test
@@ -393,30 +448,30 @@ class PostgresConcurrencyIntegrationTest {
     @DisplayName("Step 2 & 3: Failed transfer rolls back account balances and creates no orphaned transactions")
     void shouldRollbackAllChangesOnTransferFailureOnPostgres() {
         Account source = Account.builder()
-            .customer(testCustomer)
-            .accountNumber("ACC-FAIL-SRC-" + UUID.randomUUID().toString().substring(0, 4))
-            .accountType(AccountType.CHECKING)
-            .balance(new BigDecimal("500.00"))
-            .currency("USD")
-            .status(AccountStatus.ACTIVE)
-            .build();
+                .customer(testCustomer)
+                .accountNumber("ACC-FAIL-SRC-" + UUID.randomUUID().toString().substring(0, 4))
+                .accountType(AccountType.CHECKING)
+                .balance(new BigDecimal("500.00"))
+                .currency("USD")
+                .status(AccountStatus.ACTIVE)
+                .build();
         source = accountRepository.save(source);
 
         Account destEur = Account.builder()
-            .customer(testCustomer)
-            .accountNumber("ACC-FAIL-EUR-" + UUID.randomUUID().toString().substring(0, 4))
-            .accountType(AccountType.CHECKING)
-            .balance(new BigDecimal("100.00"))
-            .currency("EUR") // Mismatched currency
-            .status(AccountStatus.ACTIVE)
-            .build();
+                .customer(testCustomer)
+                .accountNumber("ACC-FAIL-EUR-" + UUID.randomUUID().toString().substring(0, 4))
+                .accountType(AccountType.CHECKING)
+                .balance(new BigDecimal("100.00"))
+                .currency("EUR") // Mismatched currency
+                .status(AccountStatus.ACTIVE)
+                .build();
         destEur = accountRepository.save(destEur);
 
         long initialTxnCount = transactionRepository.count();
 
         TransactionCreateRequest request = new TransactionCreateRequest(
-            source.getId(), new BigDecimal("100.00"), TransactionType.TRANSFER, "Currency mismatch fail", destEur.getAccountNumber()
-        );
+                source.getId(), new BigDecimal("100.00"), TransactionType.TRANSFER, "Currency mismatch fail",
+                destEur.getAccountNumber());
 
         try {
             transactionService.executeTransaction(request, adminSubject);

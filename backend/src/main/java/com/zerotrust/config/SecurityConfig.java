@@ -3,6 +3,7 @@ package com.zerotrust.config;
 import com.zerotrust.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -38,6 +39,8 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final com.zerotrust.security.RateLimitingFilter rateLimitingFilter;
+    private final com.zerotrust.threat.ThreatInspectionFilter threatInspectionFilter;
     private final UserDetailsService userDetailsService;
 
     @Value("${app.security.cors-allowed-origins}")
@@ -92,9 +95,37 @@ public class SecurityConfig {
                 .anyRequest().authenticated())
 
             // Add JWT filter before UsernamePasswordAuthenticationFilter
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            // Add Rate limiting filter immediately after JwtAuthenticationFilter
+            .addFilterAfter(rateLimitingFilter, JwtAuthenticationFilter.class)
+            // Add Threat inspection filter immediately after RateLimitingFilter
+            .addFilterAfter(threatInspectionFilter, com.zerotrust.security.RateLimitingFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(
+            JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false); // Disable top-level servlet container registration; managed in Spring Security
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<com.zerotrust.security.RateLimitingFilter> rateLimitingFilterRegistration(
+            com.zerotrust.security.RateLimitingFilter filter) {
+        FilterRegistrationBean<com.zerotrust.security.RateLimitingFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false); // Disable top-level servlet container registration; managed in Spring Security
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<com.zerotrust.threat.ThreatInspectionFilter> threatInspectionFilterRegistration(
+            com.zerotrust.threat.ThreatInspectionFilter filter) {
+        FilterRegistrationBean<com.zerotrust.threat.ThreatInspectionFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false); // Disable top-level servlet container registration; managed in Spring Security
+        return registration;
     }
 
     @Bean

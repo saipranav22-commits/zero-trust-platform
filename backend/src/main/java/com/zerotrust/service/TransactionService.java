@@ -80,7 +80,7 @@ public class TransactionService {
      * Executes a financial transaction wrapped in persistent idempotency guarantees when a key is provided.
      */
     @Transactional(rollbackFor = Exception.class)
-    public TransactionResponse executeTransaction(TransactionCreateRequest request, SecuritySubject subject, String idempotencyKey) {
+    public TransactionResponse executeTransaction(TransactionCreateRequest request, SecuritySubject subject, SecurityContext context, String idempotencyKey) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             String userId = subject != null && subject.userId() != null ? subject.userId().toString() : "ANONYMOUS";
             return idempotencyService.executeWithIdempotency(
@@ -88,23 +88,28 @@ public class TransactionService {
                 userId,
                 request,
                 TransactionResponse.class,
-                () -> processTransactionInternal(request, subject)
+                () -> processTransactionInternal(request, subject, context)
             );
         }
 
-        return processTransactionInternal(request, subject);
+        return processTransactionInternal(request, subject, context);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public TransactionResponse executeTransaction(TransactionCreateRequest request, SecuritySubject subject, String idempotencyKey) {
+        return executeTransaction(request, subject, SecurityContext.standard(), idempotencyKey);
     }
 
     /**
      * Core atomic business execution: validates amounts, enforces locks, and updates balances.
      */
-    private TransactionResponse processTransactionInternal(TransactionCreateRequest request, SecuritySubject subject) {
+    private TransactionResponse processTransactionInternal(TransactionCreateRequest request, SecuritySubject subject, SecurityContext context) {
         validateMonetaryAmount(request.amount());
 
         if (request.type() == TransactionType.TRANSFER) {
-            return processTransfer(request, subject);
+            return processTransfer(request, subject, context);
         } else if (request.type() == TransactionType.DEPOSIT || request.type() == TransactionType.WITHDRAWAL) {
-            return processSingleAccountTransaction(request, subject);
+            return processSingleAccountTransaction(request, subject, context);
         } else {
             throw new ValidationException("Unsupported transaction type: " + request.type());
         }
@@ -113,13 +118,13 @@ public class TransactionService {
     /**
      * Executes deposit or withdrawal with row-level pessimistic locking.
      */
-    private TransactionResponse processSingleAccountTransaction(TransactionCreateRequest request, SecuritySubject subject) {
+    private TransactionResponse processSingleAccountTransaction(TransactionCreateRequest request, SecuritySubject subject, SecurityContext context) {
         Account account = accountRepository.findByIdWithLock(request.accountId())
             .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + request.accountId()));
 
         Customer customer = account.getCustomer();
-        SecurityResource resource = SecurityResource.of("ACCOUNT", account.getId().toString(), customer.getAssignedEmployeeId());
-        abacPolicyEnforcer.enforce(subject, resource, SecurityAction.EXECUTE_TRANSACTION, SecurityContext.standard());
+        SecurityResource resource = SecurityResource.of("ACCOUNT", account.getId().toString(), customer.getAssignedEmployeeId(), customer.getRiskTier().name());
+        abacPolicyEnforcer.enforce(subject, resource, SecurityAction.EXECUTE_TRANSACTION, context != null ? context : SecurityContext.standard());
 
         if (account.getStatus() != AccountStatus.ACTIVE) {
             throw new ValidationException("Cannot process transaction on " + account.getStatus() + " account");
@@ -165,7 +170,7 @@ public class TransactionService {
     /**
      * Executes an atomic dual-entry fund transfer with ordered locking to prevent deadlocks.
      */
-    private TransactionResponse processTransfer(TransactionCreateRequest request, SecuritySubject subject) {
+    private TransactionResponse processTransfer(TransactionCreateRequest request, SecuritySubject subject, SecurityContext context) {
         if (request.destinationAccount() == null || request.destinationAccount().isBlank()) {
             throw new ValidationException("Destination account number is required for transfers");
         }
@@ -199,10 +204,10 @@ public class TransactionService {
             ));
         }
 
-        // Authorization check on source account ownership
+        // Authorization check on source account ownership and risk classification
         Customer sourceCustomer = initialSource.getCustomer();
-        SecurityResource sourceResource = SecurityResource.of("ACCOUNT", initialSource.getId().toString(), sourceCustomer.getAssignedEmployeeId());
-        abacPolicyEnforcer.enforce(subject, sourceResource, SecurityAction.EXECUTE_TRANSACTION, SecurityContext.standard());
+        SecurityResource sourceResource = SecurityResource.of("ACCOUNT", initialSource.getId().toString(), sourceCustomer.getAssignedEmployeeId(), sourceCustomer.getRiskTier().name());
+        abacPolicyEnforcer.enforce(subject, sourceResource, SecurityAction.EXECUTE_TRANSACTION, context != null ? context : SecurityContext.standard());
 
         // 2. Consistent Deadlock-Free Ordered Locking
         UUID firstId = initialSource.getId().compareTo(initialDest.getId()) < 0 ? initialSource.getId() : initialDest.getId();

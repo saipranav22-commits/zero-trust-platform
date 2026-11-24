@@ -222,10 +222,12 @@ public class SseService {
 
     /**
      * Proactively evicts any active SSE connection associated with a specific user.
-     * Invoked immediately upon account lockout, deactivation, or permission changes.
+     * Invoked immediately upon account lockout, deactivation, or permission
+     * changes.
      */
     public void evictClientByUserId(UUID userId) {
-        if (userId == null) return;
+        if (userId == null)
+            return;
         String uidStr = userId.toString();
         for (Map.Entry<UUID, SseClient> entry : clients.entrySet()) {
             SseClient client = entry.getValue();
@@ -235,35 +237,43 @@ public class SseService {
                 if (client.emitter() != null) {
                     try {
                         client.emitter().complete();
-                    } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                    }
                 }
             }
         }
     }
 
     /**
-     * Bounded periodic invalidation: sweeps active connections every 30 seconds and evicts
-     * any client whose underlying account has been deactivated, locked, or deleted while idle.
+     * Bounded periodic invalidation: sweeps active connections every 30 seconds and
+     * evicts
+     * any client whose underlying account has been deactivated, locked, or deleted
+     * while idle.
      */
     @Scheduled(fixedRate = 30000)
     public void evictInvalidClients() {
-        if (userRepository == null || clients.isEmpty()) return;
+        if (userRepository == null || clients.isEmpty())
+            return;
         for (Map.Entry<UUID, SseClient> entry : clients.entrySet()) {
             SseClient client = entry.getValue();
-            if (client.userId() == null || client.userId().isBlank()) continue;
+            if (client.userId() == null || client.userId().isBlank())
+                continue;
             try {
                 UUID uid = UUID.fromString(client.userId());
                 var userOpt = userRepository.findById(uid);
                 if (userOpt.isEmpty() || !userOpt.get().isActive() || userOpt.get().isAccountCurrentlyLocked()) {
-                    log.warn("Periodic eviction: terminating idle SSE client {} (user inactive/locked)", client.clientId());
+                    log.warn("Periodic eviction: terminating idle SSE client {} (user inactive/locked)",
+                            client.clientId());
                     disconnectClient(client.clientId());
                     if (client.emitter() != null) {
                         try {
                             client.emitter().complete();
-                        } catch (Exception ignored) {}
+                        } catch (Exception ignored) {
+                        }
                     }
                 }
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
         }
     }
 

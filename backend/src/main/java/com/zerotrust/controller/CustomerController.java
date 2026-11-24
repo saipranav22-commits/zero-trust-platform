@@ -8,6 +8,7 @@ import com.zerotrust.dto.response.CustomerResponse;
 import com.zerotrust.dto.response.PageResponse;
 import com.zerotrust.entity.enums.KycStatus;
 import com.zerotrust.entity.enums.RiskTier;
+import com.zerotrust.security.abac.SecurityContext;
 import com.zerotrust.security.abac.SecuritySubject;
 import com.zerotrust.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -80,6 +81,23 @@ public class CustomerController {
         return ResponseEntity.ok(ApiResponse.success(customerService.getCustomerDetails(id, subject)));
     }
 
+    @GetMapping("/{id}/sensitive")
+    @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE', 'SECURITY_ANALYST', 'AUDITOR')")
+    @Operation(summary = "Get unmasked sensitive customer data (strictly evaluated by ABAC VIEW_SENSITIVE)")
+    public ResponseEntity<ApiResponse<Map<String, String>>> getCustomerSensitiveData(
+            @PathVariable UUID id,
+            HttpServletRequest request,
+            Authentication auth) {
+
+        SecuritySubject subject = getSubject(request, auth);
+        SecurityContext context = SecurityContext.current(request);
+        String taxId = customerService.getSensitiveCustomerData(id, subject, context);
+        return ResponseEntity.ok(ApiResponse.success(Map.of(
+            "customerId", id.toString(),
+            "syntheticTaxId", taxId
+        )));
+    }
+
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'EMPLOYEE')")
     @Operation(summary = "Create a new customer profile")
@@ -104,7 +122,8 @@ public class CustomerController {
             Authentication auth) {
 
         SecuritySubject subject = getSubject(request, auth);
-        CustomerResponse updated = customerService.updateCustomer(id, updateRequest, subject);
+        SecurityContext context = SecurityContext.current(request);
+        CustomerResponse updated = customerService.updateCustomer(id, updateRequest, subject, context);
         return ResponseEntity.ok(ApiResponse.success(updated, "Customer updated successfully"));
     }
 
@@ -117,7 +136,8 @@ public class CustomerController {
             Authentication auth) {
 
         SecuritySubject subject = getSubject(request, auth);
-        customerService.deleteCustomer(id, subject);
+        SecurityContext context = SecurityContext.current(request);
+        customerService.deleteCustomer(id, subject, context);
         return ResponseEntity.ok(ApiResponse.success(Map.of("message", "Customer deleted successfully")));
     }
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, CheckCircle, XCircle, FileText, Loader2, Shield, AlertTriangle } from 'lucide-react';
+import { Search, CheckCircle, XCircle, FileText, Loader2, Shield, AlertTriangle, Link2, Check } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { AuditStatusBadge, RiskScoreBadge } from '@/components/ui/Badge';
@@ -8,7 +8,7 @@ import { Pagination, EmptyState } from '@/components/ui/Shared';
 import { auditApi } from '@/api/threat.api';
 import { formatDistanceToNow, format } from 'date-fns';
 import toast from 'react-hot-toast';
-import type { AuditLog } from '@/types';
+import type { AuditLog, AuditChainVerificationResult } from '@/types';
 
 export function AuditPage() {
   const [page, setPage] = useState(0);
@@ -17,6 +17,8 @@ export function AuditPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [verifying, setVerifying] = useState<string | null>(null);
   const [verifyResults, setVerifyResults] = useState<Record<string, { valid: boolean; message: string }>>({});
+  const [chainResult, setChainResult] = useState<AuditChainVerificationResult | null>(null);
+  const [verifyingChain, setVerifyingChain] = useState(false);
 
   const filters = {
     userId: search,
@@ -28,6 +30,23 @@ export function AuditPage() {
     queryKey: ['audit-logs', page, filters],
     queryFn: () => auditApi.getLogs({ ...filters, page, size: 20 }),
   });
+
+  const verifyChainIntegrity = async () => {
+    setVerifyingChain(true);
+    try {
+      const res = await auditApi.verifyChain();
+      setChainResult(res);
+      if (res.chainValid) {
+        toast.success(`Audit chain verified: ${res.totalRecordsVerified} records intact`);
+      } else {
+        toast.error(`CHAIN INTEGRITY VIOLATION at seq ${res.brokenSequence}: ${res.failureReason}`);
+      }
+    } catch {
+      toast.error('Failed to verify audit chain integrity');
+    } finally {
+      setVerifyingChain(false);
+    }
+  };
 
   const verifyLog = async (id: string) => {
     setVerifying(id);
@@ -103,7 +122,7 @@ export function AuditPage() {
     toast.success('Audit log explorer report exported successfully');
   };
 
-  const TABLE_HEADERS = ['Action', 'User', 'Status', 'Risk Score', 'Source IP', 'Details', 'Hash', 'Time', 'Verify'];
+  const TABLE_HEADERS = ['Seq', 'Action', 'User', 'Status', 'Risk Score', 'Source IP', 'Details', 'Hash', 'Time', 'Verify'];
 
   return (
     <Layout onRefresh={refetch} isRefreshing={isLoading}>
@@ -115,6 +134,68 @@ export function AuditPage() {
         isRefreshing={isLoading}
         onExport={handleExport}
       />
+
+      {/* ─── Chain Integrity Verification Status Banner ────── */}
+      <div className="mb-4 bg-[#11141B] border border-[#232936] rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className={`p-2.5 rounded-lg border ${
+            chainResult
+              ? chainResult.chainValid
+                ? 'bg-[#16A34A]/10 border-[#16A34A]/30 text-[#16A34A]'
+                : 'bg-[#DC2626]/10 border-[#DC2626]/30 text-[#DC2626]'
+              : 'bg-[#3B82F6]/10 border-[#3B82F6]/30 text-[#3B82F6]'
+          }`}>
+            {chainResult ? (
+              chainResult.chainValid ? <Check className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />
+            ) : (
+              <Link2 className="w-5 h-5" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-[#F8FAFC]">
+                {chainResult
+                  ? chainResult.chainValid
+                    ? 'Cryptographic Chain Integrity Verified'
+                    : 'Chain Integrity Violation Detected'
+                  : 'SHA-256 Hash Chain Verification'}
+              </h4>
+              {chainResult && (
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  chainResult.chainValid
+                    ? 'bg-[#16A34A]/20 text-[#16A34A] border border-[#16A34A]/30'
+                    : 'bg-[#DC2626]/20 text-[#DC2626] border border-[#DC2626]/30'
+                }`}>
+                  {chainResult.chainValid ? 'Chain Valid' : 'Tampered / Broken'}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-[#94A3B8] mt-0.5">
+              {chainResult
+                ? chainResult.failureReason
+                : 'Continuously links every audit entry with sequence numbers and previous record hashes.'}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={verifyChainIntegrity}
+          disabled={verifyingChain}
+          className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#1E293B] hover:bg-[#334155] text-xs font-semibold text-[#F8FAFC] border border-[#334155] transition-all disabled:opacity-50"
+        >
+          {verifyingChain ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#3B82F6]" />
+              Verifying Chain…
+            </>
+          ) : (
+            <>
+              <Shield className="w-3.5 h-3.5 text-[#3B82F6]" />
+              Verify Chain Continuity
+            </>
+          )}
+        </button>
+      </div>
 
       {/* ─── Toolbar ──────────────────────────────── */}
       <div className="sentinel-toolbar">
@@ -217,6 +298,9 @@ export function AuditPage() {
               )}
               {data?.content?.map((log: AuditLog) => (
                 <tr key={log.id} className="sentinel-tr">
+                  <td className="sentinel-td font-mono text-xs text-[#38BDF8] font-semibold">
+                    {log.sequenceNumber ? `#${log.sequenceNumber}` : '—'}
+                  </td>
                   <td className="sentinel-td">
                     <span className="font-mono text-xs text-[#F8FAFC] bg-[#1F2530] px-2 py-0.5 rounded border border-[#2D3642]">
                       {log.action}

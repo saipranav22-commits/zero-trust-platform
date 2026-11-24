@@ -17,6 +17,11 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 1000ms
 
 jwt:
   secret: "test-jwt-secret-key-for-unit-testing-purposes-must-be-at-least-256-bits-long"
@@ -25,11 +30,17 @@ jwt:
 
 app:
   seed-demo-data: true
+  rate-limit:
+    enabled: false
   security:
     max-failed-logins: 5
     lockout-duration-minutes: 15
     cors-allowed-origins: "http://localhost:3000"
+    trusted-proxies: "127.0.0.1,::1"
+    encryption:
+      key: "k+u7V2Xg4qH8lK9pY0rW3tU6yI8oP1aS4dF7gJ0kM3o="
   threat-detection:
+    enabled: true
     brute-force-threshold: 10
     brute-force-window-minutes: 5
     exfiltration-threshold: 1000

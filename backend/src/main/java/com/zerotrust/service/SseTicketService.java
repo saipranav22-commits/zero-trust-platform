@@ -1,6 +1,8 @@
 package com.zerotrust.service;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -12,30 +14,32 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Service managing short-lived, single-use tickets for Server-Sent Events (SSE).
- *
- * <p>Security Rationale:
- * Standard browser EventSource API does not support custom HTTP headers (such as Authorization: Bearer).
- * Passing long-lived access tokens or refresh tokens in query strings leaks credentials to proxy logs,
- * browser history, and server access logs.
- *
- * <p>This service provides a short-lived (30-second), single-use ticket pattern:
- * 1. An authenticated client requests a ticket via a standard authenticated POST endpoint.
- * 2. The ticket is single-use and consumed immediately upon establishing the SSE connection.
- * 3. Expired or replayed tickets are rejected with 401 Unauthorized.
+ * Backed by Redis atomic GETDEL script for distributed multi-instance deployment.
  */
 @Slf4j
 @Service
 public class SseTicketService {
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public record TicketData(String userId, String userEmail, java.util.Set<String> roles, Instant expiresAt) {
         public TicketData(String userId, String userEmail, Instant expiresAt) {
             this(userId, userEmail, java.util.Set.of(), expiresAt);
         }
     }
 
-    private final Map<String, TicketData> activeTickets = new ConcurrentHashMap<>();
+    private final RedisSecurityService redisSecurityService;
+    private final Map<String, TicketData> localTickets = new ConcurrentHashMap<>();
     private final SecureRandom secureRandom = new SecureRandom();
     private static final long TICKET_VALIDITY_SECONDS = 30L;
+
+    public SseTicketService() {
+        this.redisSecurityService = null;
+    }
+
+    @Autowired
+    public SseTicketService(@Autowired(required = false) RedisSecurityService redisSecurityService) {
+        this.redisSecurityService = redisSecurityService;
+    }
 
     /**
      * Issues a short-lived single-use ticket for the authenticated user without explicit roles.
@@ -54,7 +58,14 @@ public class SseTicketService {
 
         Instant expiresAt = Instant.now().plusSeconds(TICKET_VALIDITY_SECONDS);
         java.util.Set<String> safeRoles = (roles != null) ? java.util.Set.copyOf(roles) : java.util.Set.of();
-        activeTickets.put(ticket, new TicketData(userId, userEmail, safeRoles, expiresAt));
+        TicketData data = new TicketData(userId, userEmail, safeRoles, expiresAt);
+
+        if (redisSecurityService != null) {
+            redisSecurityService.saveSseTicket(ticket, data);
+        } else {
+            localTickets.put(ticket, data);
+        }
+
         log.debug("Issued SSE stream ticket for user {} with roles {} (valid for {}s)", userEmail, safeRoles, TICKET_VALIDITY_SECONDS);
         return ticket;
     }
@@ -70,7 +81,18 @@ public class SseTicketService {
             return null;
         }
 
-        TicketData data = activeTickets.remove(ticket);
+        TicketData data;
+        if (redisSecurityService != null) {
+            try {
+                data = redisSecurityService.consumeSseTicket(ticket);
+            } catch (RedisSecurityService.RedisSecurityException ex) {
+                log.error("Redis outage during SSE ticket validation: fail-closed");
+                return null; // Strict fail-closed
+            }
+        } else {
+            data = localTickets.remove(ticket);
+        }
+
         if (data == null) {
             log.warn("Rejected invalid or already-consumed SSE ticket");
             return null;
@@ -86,16 +108,18 @@ public class SseTicketService {
     }
 
     /**
-     * Purges stale expired tickets periodically to prevent memory accumulation.
+     * Purges stale expired local tickets periodically.
      */
     @Scheduled(fixedRate = 60000)
     public void purgeExpiredTickets() {
-        Instant now = Instant.now();
-        int initialSize = activeTickets.size();
-        activeTickets.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
-        int purged = initialSize - activeTickets.size();
-        if (purged > 0) {
-            log.debug("Purged {} expired SSE stream tickets", purged);
+        if (redisSecurityService == null) {
+            Instant now = Instant.now();
+            int initialSize = localTickets.size();
+            localTickets.entrySet().removeIf(entry -> entry.getValue().expiresAt().isBefore(now));
+            int purged = initialSize - localTickets.size();
+            if (purged > 0) {
+                log.debug("Purged {} expired local SSE stream tickets", purged);
+            }
         }
     }
 }

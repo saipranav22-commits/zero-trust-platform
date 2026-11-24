@@ -58,6 +58,9 @@ class AuthServiceTest {
     private AuditService auditService;
 
     @Mock
+    private RedisSecurityService redisSecurityService;
+
+    @Mock
     private HttpServletRequest httpRequest;
 
     @InjectMocks

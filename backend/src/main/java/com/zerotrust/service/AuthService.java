@@ -43,6 +43,7 @@ public class AuthService {
     private final JwtTokenProvider      jwtTokenProvider;
     private final PasswordEncoder       passwordEncoder;
     private final AuditService          auditService;
+    private final RedisSecurityService  redisSecurityService;
 
     @Value("${jwt.refresh-token-expiry-ms}")
     private long refreshTokenExpiryMs;
@@ -95,9 +96,32 @@ public class AuthService {
     public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
         String clientIp = getClientIp(httpRequest);
 
+        // Check Redis distributed brute-force protection
+        if (redisSecurityService != null) {
+            if (redisSecurityService.isIpBlocked(clientIp)) {
+                log.warn("Login blocked: client IP {} exceeded brute force threshold", clientIp);
+                auditService.log(null, request.email(),
+                    "USER_LOGIN_BLOCKED", "IP", clientIp,
+                    clientIp, httpRequest.getHeader("User-Agent"),
+                    AuditStatus.BLOCKED, 60, "IP blocked due to excessive failed attempts");
+                throw new UnauthorizedException("Too many failed login attempts. Please try again later.");
+            }
+            if (redisSecurityService.isAccountThrottled(request.email())) {
+                log.warn("Login throttled: email {} exceeded brute force threshold", request.email());
+                auditService.log(null, request.email(),
+                    "USER_LOGIN_BLOCKED", "ACCOUNT", request.email(),
+                    clientIp, httpRequest.getHeader("User-Agent"),
+                    AuditStatus.BLOCKED, 60, "Account throttled due to excessive failed attempts");
+                throw new UnauthorizedException("Too many failed login attempts. Please try again later.");
+            }
+        }
+
         User user = userRepository.findByEmail(request.email())
             .orElseThrow(() -> {
                 log.warn("Login attempt for non-existent user: {}", request.email());
+                if (redisSecurityService != null) {
+                    redisSecurityService.recordFailedAuth(clientIp, request.email());
+                }
                 return new UnauthorizedException("Invalid email or password");
             });
 
@@ -115,6 +139,10 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             user.incrementFailedLoginAttempts(maxFailedLogins, lockoutDurationMinutes);
             userRepository.save(user);
+
+            if (redisSecurityService != null) {
+                redisSecurityService.recordFailedAuth(clientIp, request.email());
+            }
 
             String details = "Failed login attempt " + user.getFailedLoginAttempts() +
                              "/" + maxFailedLogins;
@@ -137,6 +165,10 @@ public class AuthService {
         user.setLastLoginAt(Instant.now());
         user.setLastLoginIp(clientIp);
         userRepository.save(user);
+
+        if (redisSecurityService != null) {
+            redisSecurityService.resetFailedAccountAuth(request.email());
+        }
 
         auditService.log(user.getId().toString(), user.getEmail(),
             "USER_LOGIN", "USER", user.getId().toString(),
@@ -186,9 +218,27 @@ public class AuthService {
             refreshTokenRepository.save(token);
         });
 
+        // Revoke access token if present in Authorization header
+        if (httpRequest != null) {
+            String authHeader = httpRequest.getHeader("Authorization");
+            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+                String accessToken = authHeader.substring(7);
+                try {
+                    if (jwtTokenProvider.isTokenValid(accessToken)) {
+                        Instant expiry = jwtTokenProvider.extractExpiration(accessToken).toInstant();
+                        if (redisSecurityService != null) {
+                            redisSecurityService.revokeAccessToken(accessToken, expiry);
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("Could not denylist access token on logout: {}", ex.getMessage());
+                }
+            }
+        }
+
         auditService.log(userId, null,
             "USER_LOGOUT", "USER", userId,
-            getClientIp(httpRequest), httpRequest.getHeader("User-Agent"),
+            getClientIp(httpRequest), (httpRequest != null ? httpRequest.getHeader("User-Agent") : null),
             AuditStatus.SUCCESS, 0, "User logged out");
     }
 

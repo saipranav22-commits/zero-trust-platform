@@ -105,6 +105,13 @@ public class JwtTokenProvider {
     }
 
     /**
+     * Extracts token expiration timestamp.
+     */
+    public Date extractExpiration(String token) {
+        return validateAndGetClaims(token).getExpiration();
+    }
+
+    /**
      * Checks if a token is expired without throwing.
      */
     public boolean isTokenExpired(String token) {

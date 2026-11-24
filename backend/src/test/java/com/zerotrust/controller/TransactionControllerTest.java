@@ -6,6 +6,7 @@ import com.zerotrust.dto.response.TransactionResponse;
 import com.zerotrust.entity.enums.TransactionStatus;
 import com.zerotrust.entity.enums.TransactionType;
 import com.zerotrust.exception.GlobalExceptionHandler;
+import com.zerotrust.security.abac.SecurityContext;
 import com.zerotrust.security.abac.SecuritySubject;
 import com.zerotrust.service.TransactionService;
 import org.junit.jupiter.api.BeforeEach;
@@ -80,7 +81,7 @@ class TransactionControllerTest {
             Instant.now()
         );
 
-        when(transactionService.executeTransaction(any(TransactionCreateRequest.class), any(SecuritySubject.class), eq("idemp-key-123")))
+        when(transactionService.executeTransaction(any(TransactionCreateRequest.class), any(SecuritySubject.class), any(SecurityContext.class), eq("idemp-key-123")))
             .thenReturn(response);
 
         mockMvc.perform(post("/api/transactions")
@@ -91,7 +92,7 @@ class TransactionControllerTest {
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.referenceNumber").value("TXN-100"));
 
-        verify(transactionService).executeTransaction(any(TransactionCreateRequest.class), any(SecuritySubject.class), eq("idemp-key-123"));
+        verify(transactionService).executeTransaction(any(TransactionCreateRequest.class), any(SecuritySubject.class), any(SecurityContext.class), eq("idemp-key-123"));
     }
 
     @Test

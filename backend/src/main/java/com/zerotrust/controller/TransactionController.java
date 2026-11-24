@@ -4,6 +4,7 @@ import com.zerotrust.dto.request.TransactionCreateRequest;
 import com.zerotrust.dto.response.ApiResponse;
 import com.zerotrust.dto.response.PageResponse;
 import com.zerotrust.dto.response.TransactionResponse;
+import com.zerotrust.security.abac.SecurityContext;
 import com.zerotrust.security.abac.SecuritySubject;
 import com.zerotrust.service.TransactionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -71,7 +72,8 @@ public class TransactionController {
             Authentication auth) {
 
         SecuritySubject subject = getSubject(request, auth);
-        TransactionResponse executed = transactionService.executeTransaction(createRequest, subject, idempotencyKey);
+        SecurityContext context = SecurityContext.current(request);
+        TransactionResponse executed = transactionService.executeTransaction(createRequest, subject, context, idempotencyKey);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success(executed, "Transaction processed successfully"));
     }

@@ -61,6 +61,25 @@ export const ThreatStatusBadge: React.FC<{ status: ThreatStatus }> = ({ status }
   );
 };
 
+/* ─── Incident Status Badge ─── */
+
+const incidentStatusConfig: Record<import('@/types').IncidentStatus, { className: string; label: string; dotColor: string }> = {
+  OPEN:          { className: 'status-detected',      label: 'Open',          dotColor: 'bg-[#DC2626]' },
+  ACKNOWLEDGED:  { className: 'status-investigating', label: 'Acknowledged',  dotColor: 'bg-[#3B82F6]' },
+  INVESTIGATING: { className: 'status-investigating', label: 'Investigating', dotColor: 'bg-[#D97706]' },
+  RESOLVED:      { className: 'status-resolved',      label: 'Resolved',      dotColor: 'bg-[#16A34A]' },
+};
+
+export const IncidentStatusBadge: React.FC<{ status: import('@/types').IncidentStatus }> = ({ status }) => {
+  const config = incidentStatusConfig[status] || incidentStatusConfig.OPEN;
+  return (
+    <span className={clsx(config.className)}>
+      <span className={clsx('w-1.5 h-1.5 rounded-full', config.dotColor)} />
+      {config.label}
+    </span>
+  );
+};
+
 /* ─── Audit Status Badge ─── */
 
 const auditConfig: Record<AuditStatus, { className: string; label: string }> = {

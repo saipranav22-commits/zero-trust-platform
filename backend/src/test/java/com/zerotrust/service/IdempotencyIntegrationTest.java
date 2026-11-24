@@ -50,23 +50,20 @@ class IdempotencyIntegrationTest {
         String userId = "user-abc";
         String storageKey = userId + ":" + key;
         TransactionCreateRequest request = new TransactionCreateRequest(
-            UUID.randomUUID(),
-            new BigDecimal("100.00"),
-            TransactionType.DEPOSIT,
-            "Deposit test",
-            null
-        );
+                UUID.randomUUID(),
+                new BigDecimal("100.00"),
+                TransactionType.DEPOSIT,
+                "Deposit test",
+                null);
 
         when(idempotencyRecordRepository.findById(storageKey)).thenReturn(Optional.empty());
 
         TransactionResponse response = idempotencyService.executeWithIdempotency(
-            key, userId, request, TransactionResponse.class,
-            () -> new TransactionResponse(
-                UUID.randomUUID(), request.accountId(), "TXN-1",
-                request.amount(), request.type(), TransactionStatus.COMPLETED,
-                request.description(), null, null, null, Instant.now()
-            )
-        );
+                key, userId, request, TransactionResponse.class,
+                () -> new TransactionResponse(
+                        UUID.randomUUID(), request.accountId(), "TXN-1",
+                        request.amount(), request.type(), TransactionStatus.COMPLETED,
+                        request.description(), null, null, null, Instant.now()));
 
         assertThat(response).isNotNull();
         assertThat(response.referenceNumber()).isEqualTo("TXN-1");
@@ -81,45 +78,43 @@ class IdempotencyIntegrationTest {
         String userId = "user-abc";
         String storageKey = userId + ":" + key;
         TransactionCreateRequest request = new TransactionCreateRequest(
-            UUID.randomUUID(),
-            new BigDecimal("50.00"),
-            TransactionType.DEPOSIT,
-            "Replay deposit",
-            null
-        );
+                UUID.randomUUID(),
+                new BigDecimal("50.00"),
+                TransactionType.DEPOSIT,
+                "Replay deposit",
+                null);
 
         // Compute request hash
         String json = objectMapper.writeValueAsString(request);
         java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-        String expectedHash = java.util.HexFormat.of().formatHex(md.digest(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        String expectedHash = java.util.HexFormat.of()
+                .formatHex(md.digest(json.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
 
         TransactionResponse cachedResponse = new TransactionResponse(
-            UUID.randomUUID(), request.accountId(), "TXN-ORIGINAL",
-            request.amount(), request.type(), TransactionStatus.COMPLETED,
-            request.description(), null, null, null, Instant.now()
-        );
+                UUID.randomUUID(), request.accountId(), "TXN-ORIGINAL",
+                request.amount(), request.type(), TransactionStatus.COMPLETED,
+                request.description(), null, null, null, Instant.now());
 
         IdempotencyRecord completedRecord = IdempotencyRecord.builder()
-            .key(storageKey)
-            .userId(userId)
-            .requestHash(expectedHash)
-            .status(IdempotencyStatus.COMPLETED)
-            .responseBody(objectMapper.writeValueAsString(cachedResponse))
-            .statusCode(201)
-            .createdAt(Instant.now())
-            .expiresAt(Instant.now().plusSeconds(3600))
-            .build();
+                .key(storageKey)
+                .userId(userId)
+                .requestHash(expectedHash)
+                .status(IdempotencyStatus.COMPLETED)
+                .responseBody(objectMapper.writeValueAsString(cachedResponse))
+                .statusCode(201)
+                .createdAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
 
         when(idempotencyRecordRepository.findById(storageKey)).thenReturn(Optional.of(completedRecord));
 
         AtomicInteger executionCount = new AtomicInteger(0);
         TransactionResponse replayed = idempotencyService.executeWithIdempotency(
-            key, userId, request, TransactionResponse.class,
-            () -> {
-                executionCount.incrementAndGet();
-                return null;
-            }
-        );
+                key, userId, request, TransactionResponse.class,
+                () -> {
+                    executionCount.incrementAndGet();
+                    return null;
+                });
 
         assertThat(replayed).isNotNull();
         assertThat(replayed.referenceNumber()).isEqualTo("TXN-ORIGINAL");
@@ -134,29 +129,26 @@ class IdempotencyIntegrationTest {
         String storageKey = userId + ":" + key;
 
         TransactionCreateRequest original = new TransactionCreateRequest(
-            UUID.randomUUID(), new BigDecimal("100.00"), TransactionType.DEPOSIT, "Original", null
-        );
+                UUID.randomUUID(), new BigDecimal("100.00"), TransactionType.DEPOSIT, "Original", null);
         TransactionCreateRequest altered = new TransactionCreateRequest(
-            UUID.randomUUID(), new BigDecimal("200.00"), TransactionType.DEPOSIT, "Altered", null
-        );
+                UUID.randomUUID(), new BigDecimal("200.00"), TransactionType.DEPOSIT, "Altered", null);
 
         IdempotencyRecord completedRecord = IdempotencyRecord.builder()
-            .key(storageKey)
-            .userId(userId)
-            .requestHash("hash-of-original-request")
-            .status(IdempotencyStatus.COMPLETED)
-            .responseBody("{}")
-            .statusCode(201)
-            .createdAt(Instant.now())
-            .expiresAt(Instant.now().plusSeconds(3600))
-            .build();
+                .key(storageKey)
+                .userId(userId)
+                .requestHash("hash-of-original-request")
+                .status(IdempotencyStatus.COMPLETED)
+                .responseBody("{}")
+                .statusCode(201)
+                .createdAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
 
         when(idempotencyRecordRepository.findById(storageKey)).thenReturn(Optional.of(completedRecord));
 
         assertThatThrownBy(() -> idempotencyService.executeWithIdempotency(
-            key, userId, altered, TransactionResponse.class, () -> null
-        )).isInstanceOf(ValidationException.class)
-          .hasMessageContaining("Idempotency-Key collision");
+                key, userId, altered, TransactionResponse.class, () -> null)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Idempotency-Key collision");
     }
 
     @Test
@@ -166,23 +158,21 @@ class IdempotencyIntegrationTest {
         String userId = "user-abc";
         String storageKey = userId + ":" + key;
         TransactionCreateRequest request = new TransactionCreateRequest(
-            UUID.randomUUID(), new BigDecimal("100.00"), TransactionType.DEPOSIT, "Concurrent", null
-        );
+                UUID.randomUUID(), new BigDecimal("100.00"), TransactionType.DEPOSIT, "Concurrent", null);
 
         IdempotencyRecord inProgressRecord = IdempotencyRecord.builder()
-            .key(storageKey)
-            .userId(userId)
-            .requestHash("hash")
-            .status(IdempotencyStatus.IN_PROGRESS)
-            .createdAt(Instant.now())
-            .expiresAt(Instant.now().plusSeconds(3600))
-            .build();
+                .key(storageKey)
+                .userId(userId)
+                .requestHash("hash")
+                .status(IdempotencyStatus.IN_PROGRESS)
+                .createdAt(Instant.now())
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build();
 
         when(idempotencyRecordRepository.findById(storageKey)).thenReturn(Optional.of(inProgressRecord));
 
         assertThatThrownBy(() -> idempotencyService.executeWithIdempotency(
-            key, userId, request, TransactionResponse.class, () -> null
-        )).isInstanceOf(ValidationException.class)
-          .hasMessageContaining("Transaction is currently in progress");
+                key, userId, request, TransactionResponse.class, () -> null)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Transaction is currently in progress");
     }
 }

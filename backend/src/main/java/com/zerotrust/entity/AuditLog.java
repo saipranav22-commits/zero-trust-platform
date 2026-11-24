@@ -24,6 +24,10 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Monotonically increasing sequence number guaranteeing strict record ordering */
+    @Column(name = "sequence_number", nullable = false, updatable = false)
+    private Long sequenceNumber;
+
     @Column(length = 255)
     private String userId;
 
