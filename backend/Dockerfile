@@ -30,9 +30,8 @@ ENTRYPOINT ["java", \
   "-XX:+UseContainerSupport", \
   "-XX:+UseSerialGC", \
   "-Xms160m", \
-  "-Xmx220m", \
-  "-Xss256k", \
-  "-XX:MaxMetaspaceSize=96m", \
+  "-Xmx256m", \
+  "-XX:MaxMetaspaceSize=128m", \
   "-XX:ReservedCodeCacheSize=48m", \
   "-Djava.security.egd=file:/dev/./urandom", \
   "-jar", "app.jar"]

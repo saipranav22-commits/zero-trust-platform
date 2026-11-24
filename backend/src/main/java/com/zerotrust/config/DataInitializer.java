@@ -45,6 +45,12 @@ public class DataInitializer implements ApplicationRunner {
     @Value("${app.seed-demo-data:false}")
     private boolean seedDemoData;
 
+    @Value("${app.demo.admin-password:}")
+    private String demoAdminPassword;
+
+    @Value("${app.demo.analyst-password:}")
+    private String demoAnalystPassword;
+
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
@@ -63,9 +69,58 @@ public class DataInitializer implements ApplicationRunner {
             return;
         }
 
+        boolean isDemo = Arrays.asList(environment.getActiveProfiles()).contains("demo");
+        if (isDemo) {
+            log.info("🌐 Initializing restricted public demo profile with safe credentials and synthetic data.");
+            seedPublicDemoUsers();
+            seedSyntheticBankingData();
+            return;
+        }
+
         log.warn("⚠️ Demo data seeding is ENABLED (app.seed-demo-data=true). Creating synthetic development accounts.");
         seedUsers();
         seedSyntheticBankingData();
+    }
+
+    private void seedPublicDemoUsers() {
+        Role adminRole = roleRepository.findByName("ROLE_ADMIN")
+            .orElseThrow(() -> new IllegalStateException("ROLE_ADMIN not found — roles must be seeded first"));
+        Role analystRole = roleRepository.findByName("ROLE_SECURITY_ANALYST").orElse(adminRole);
+
+        // 1. In public demo mode, NEVER create an admin account with default/hardcoded passwords.
+        // An admin is only created if DEMO_ADMIN_PASSWORD is set by the platform administrator via environment variable.
+        if (org.springframework.util.StringUtils.hasText(demoAdminPassword) && !userRepository.existsByEmail("admin@zerotrust.com")) {
+            User admin = User.builder()
+                .email("admin@zerotrust.com")
+                .passwordHash(passwordEncoder.encode(demoAdminPassword))
+                .firstName("System")
+                .lastName("Administrator")
+                .isActive(true)
+                .isLocked(false)
+                .roles(Set.of(adminRole))
+                .build();
+            userRepository.save(admin);
+            log.info("🔐 Configured demo administrator account provisioned via environment secret.");
+        } else if (!userRepository.existsByEmail("admin@zerotrust.com")) {
+            log.info("🛡️ Public demo mode: Default admin account creation skipped (no DEMO_ADMIN_PASSWORD provided).");
+        }
+
+        // 2. Provision least-privilege demo analyst account (read-only monitoring & threat triage)
+        String analystPassword = org.springframework.util.StringUtils.hasText(demoAnalystPassword)
+            ? demoAnalystPassword : "DemoAnalyst@2026!";
+        if (!userRepository.existsByEmail("demo.analyst@zerotrust.com")) {
+            User demoAnalyst = User.builder()
+                .email("demo.analyst@zerotrust.com")
+                .passwordHash(passwordEncoder.encode(analystPassword))
+                .firstName("Demo")
+                .lastName("Analyst")
+                .isActive(true)
+                .isLocked(false)
+                .roles(Set.of(analystRole))
+                .build();
+            userRepository.save(demoAnalyst);
+            log.info("✅ Least-privilege public demo analyst provisioned: demo.analyst@zerotrust.com (ROLE_SECURITY_ANALYST)");
+        }
     }
 
     private void seedRoles() {

@@ -1,5 +1,6 @@
 # Production / Cloud Profile for SYVORA on Render Free Tier (512 MB RAM, 0.1 shared vCPU)
 server:
+  port: ${PORT:8080}
   forward-headers-strategy: framework
   tomcat:
     threads:
@@ -28,6 +29,10 @@ spring:
           max-idle: 4
           min-idle: 1
           max-wait: 1000ms
+
+app:
+  demo:
+    mutations-disabled: true
 
 logging:
   level:

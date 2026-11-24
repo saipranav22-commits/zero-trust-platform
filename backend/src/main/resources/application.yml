@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
   error:
     include-message: always
     include-binding-errors: always
@@ -39,6 +39,7 @@ spring:
 
   data:
     redis:
+      url: ${REDIS_URL:}
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
@@ -64,6 +65,10 @@ jwt:
 
 app:
   seed-demo-data: false
+  demo:
+    mutations-disabled: false
+    admin-password: ${DEMO_ADMIN_PASSWORD:}
+    analyst-password: ${DEMO_ANALYST_PASSWORD:}
   security:
     max-failed-logins: 5
     lockout-duration-minutes: 15

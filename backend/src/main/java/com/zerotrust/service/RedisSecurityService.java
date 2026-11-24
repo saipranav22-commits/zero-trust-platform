@@ -3,6 +3,8 @@ package com.zerotrust.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zerotrust.security.RateLimitResult;
 import com.zerotrust.security.RateLimitTier;
+import com.zerotrust.entity.RevokedToken;
+import com.zerotrust.repository.RevokedTokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -32,35 +34,36 @@ public class RedisSecurityService {
 
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
+    private final RevokedTokenRepository revokedTokenRepository;
 
     // ─────────────────────────────────────────────
     // ATOMIC LUA SLIDING-WINDOW SCRIPT
     // ─────────────────────────────────────────────
     private static final String SLIDING_WINDOW_LUA = """
-        local key = KEYS[1]
-        local nowMs = tonumber(ARGV[1])
-        local windowMs = tonumber(ARGV[2])
-        local maxLimit = tonumber(ARGV[3])
-        local memberId = ARGV[4]
-        local ttlSeconds = tonumber(ARGV[5])
+            local key = KEYS[1]
+            local nowMs = tonumber(ARGV[1])
+            local windowMs = tonumber(ARGV[2])
+            local maxLimit = tonumber(ARGV[3])
+            local memberId = ARGV[4]
+            local ttlSeconds = tonumber(ARGV[5])
 
-        redis.call('ZREMRANGEBYSCORE', key, 0, nowMs - windowMs)
-        local count = redis.call('ZCARD', key)
+            redis.call('ZREMRANGEBYSCORE', key, 0, nowMs - windowMs)
+            local count = redis.call('ZCARD', key)
 
-        if count < maxLimit then
-            redis.call('ZADD', key, nowMs, memberId)
-            redis.call('EXPIRE', key, ttlSeconds)
-            return {1, maxLimit - count - 1, 0}
-        else
-            local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
-            local resetAfterMs = 0
-            if oldest and #oldest >= 2 then
-                resetAfterMs = (tonumber(oldest[2]) + windowMs) - nowMs
+            if count < maxLimit then
+                redis.call('ZADD', key, nowMs, memberId)
+                redis.call('EXPIRE', key, ttlSeconds)
+                return {1, maxLimit - count - 1, 0}
+            else
+                local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+                local resetAfterMs = 0
+                if oldest and #oldest >= 2 then
+                    resetAfterMs = (tonumber(oldest[2]) + windowMs) - nowMs
+                end
+                local retryAfterSec = math.max(1, math.ceil(resetAfterMs / 1000))
+                return {0, 0, retryAfterSec}
             end
-            local retryAfterSec = math.max(1, math.ceil(resetAfterMs / 1000))
-            return {0, 0, retryAfterSec}
-        end
-        """;
+            """;
 
     private final RedisScript<List> slidingWindowScript = new DefaultRedisScript<>(SLIDING_WINDOW_LUA, List.class);
 
@@ -77,14 +80,13 @@ public class RedisSecurityService {
 
         try {
             List<?> result = stringRedisTemplate.execute(
-                slidingWindowScript,
-                List.of(key),
-                String.valueOf(nowMs),
-                String.valueOf(windowMs),
-                String.valueOf(tier.getDefaultLimit()),
-                memberId,
-                String.valueOf(ttlSeconds)
-            );
+                    slidingWindowScript,
+                    List.of(key),
+                    String.valueOf(nowMs),
+                    String.valueOf(windowMs),
+                    String.valueOf(tier.getDefaultLimit()),
+                    memberId,
+                    String.valueOf(ttlSeconds));
 
             if (result != null && result.size() >= 3) {
                 long allowed = ((Number) result.get(0)).longValue();
@@ -143,7 +145,8 @@ public class RedisSecurityService {
     }
 
     public boolean isIpBlocked(String clientIp) {
-        if (clientIp == null || clientIp.isBlank()) return false;
+        if (clientIp == null || clientIp.isBlank())
+            return false;
         try {
             String ipKey = "bruteforce:ip:" + clientIp.trim();
             String val = stringRedisTemplate.opsForValue().get(ipKey);
@@ -158,7 +161,8 @@ public class RedisSecurityService {
     }
 
     public boolean isAccountThrottled(String email) {
-        if (email == null || email.isBlank()) return false;
+        if (email == null || email.isBlank())
+            return false;
         try {
             String emailHash = sha256Digest(email.trim().toLowerCase());
             String accKey = "bruteforce:account:" + emailHash;
@@ -174,7 +178,8 @@ public class RedisSecurityService {
     }
 
     public void resetFailedAccountAuth(String email) {
-        if (email == null || email.isBlank()) return;
+        if (email == null || email.isBlank())
+            return;
         try {
             String emailHash = sha256Digest(email.trim().toLowerCase());
             stringRedisTemplate.delete("bruteforce:account:" + emailHash);
@@ -184,7 +189,8 @@ public class RedisSecurityService {
     }
 
     public void resetFailedIpAuth(String clientIp) {
-        if (clientIp == null || clientIp.isBlank()) return;
+        if (clientIp == null || clientIp.isBlank())
+            return;
         try {
             stringRedisTemplate.delete("bruteforce:ip:" + clientIp.trim());
         } catch (Exception ex) {
@@ -194,8 +200,10 @@ public class RedisSecurityService {
 
     /**
      * Resets failed authentication state.
-     * Note: In accordance with SEC-002, only the account-specific failure counter is cleared
-     * on login. Source IP failure counters remain bounded by their TTL to prevent credential stuffers
+     * Note: In accordance with SEC-002, only the account-specific failure counter
+     * is cleared
+     * on login. Source IP failure counters remain bounded by their TTL to prevent
+     * credential stuffers
      * from resetting their IP abuse counter via a canary account.
      */
     public void resetFailedAuth(String clientIp, String email) {
@@ -207,7 +215,8 @@ public class RedisSecurityService {
     // ─────────────────────────────────────────────
 
     public void revokeAccessToken(String rawToken, Instant expiresAt) {
-        if (rawToken == null || rawToken.isBlank()) return;
+        if (rawToken == null || rawToken.isBlank())
+            return;
         String tokenDigest = sha256Digest(rawToken);
         String key = "jwt:denylist:" + tokenDigest;
 
@@ -216,9 +225,21 @@ public class RedisSecurityService {
             return; // Token is already expired naturally
         }
 
+        // 1. Persist to PostgreSQL so revocation survives ephemeral Redis / Valkey
+        // restarts
+        try {
+            revokedTokenRepository.save(new RevokedToken(tokenDigest, expiresAt, Instant.now()));
+            log.info("Access token digest {} persisted to PostgreSQL revocation table", tokenDigest);
+        } catch (Exception ex) {
+            log.error("Failed to persist revoked token to PostgreSQL: {}", ex.getMessage());
+            throw new IllegalStateException("Could not persist token revocation", ex);
+        }
+
+        // 2. Persist to Redis for low-latency lookups
         try {
             stringRedisTemplate.opsForValue().set(key, "revoked", Duration.ofSeconds(remainingSeconds));
-            log.info("Access token digest {} added to Redis revocation denylist for {}s", tokenDigest, remainingSeconds);
+            log.info("Access token digest {} added to Redis revocation denylist for {}s", tokenDigest,
+                    remainingSeconds);
         } catch (Exception ex) {
             log.error("Failed to persist revoked token to Redis denylist: {}", ex.getMessage());
             throw new IllegalStateException("Could not revoke token in distributed denylist", ex);
@@ -226,18 +247,44 @@ public class RedisSecurityService {
     }
 
     public boolean isTokenRevoked(String rawToken) {
-        if (rawToken == null || rawToken.isBlank()) return false;
+        if (rawToken == null || rawToken.isBlank())
+            return false;
         String tokenDigest = sha256Digest(rawToken);
         String key = "jwt:denylist:" + tokenDigest;
 
+        // Fast-path: Check Redis distributed cache
         try {
             Boolean exists = stringRedisTemplate.hasKey(key);
-            return Boolean.TRUE.equals(exists);
+            if (Boolean.TRUE.equals(exists)) {
+                return true;
+            }
         } catch (Exception ex) {
             log.error("Redis denylist lookup failed for token digest {}: {}", tokenDigest, ex.getMessage());
-            // Signal outage to caller
+            // Signal outage to caller: Fail-closed on Redis outage
             throw new RedisSecurityException("Token revocation check unavailable due to Redis outage", ex);
         }
+
+        // Fallback-path: Redis returned false (cache miss or Redis in-memory restart).
+        // Check persistent PostgreSQL store for durable revocation state:
+        try {
+            if (revokedTokenRepository.existsByTokenDigestAndExpiresAtAfter(tokenDigest, Instant.now())) {
+                log.warn(
+                        "Access token digest {} found in PostgreSQL persistent denylist after Redis cache miss (restoring to Redis)",
+                        tokenDigest);
+                // Re-hydrate Redis cache to optimize subsequent requests
+                try {
+                    stringRedisTemplate.opsForValue().set(key, "revoked", Duration.ofMinutes(15));
+                } catch (Exception ignored) {
+                }
+                return true;
+            }
+        } catch (Exception ex) {
+            log.error("PostgreSQL persistent revocation lookup failed: {}", ex.getMessage());
+            // Security requirement: Authentication must NOT fail open on database error
+            throw new RedisSecurityException("Persistent token revocation verification failed due to database error", ex);
+        }
+
+        return false;
     }
 
     // ─────────────────────────────────────────────
@@ -245,16 +292,17 @@ public class RedisSecurityService {
     // ─────────────────────────────────────────────
 
     private static final String GETDEL_LUA = """
-        local val = redis.call('GET', KEYS[1])
-        if val then
-            redis.call('DEL', KEYS[1])
-        end
-        return val
-        """;
+            local val = redis.call('GET', KEYS[1])
+            if val then
+                redis.call('DEL', KEYS[1])
+            end
+            return val
+            """;
     private final RedisScript<String> getDelScript = new DefaultRedisScript<>(GETDEL_LUA, String.class);
 
     public void saveSseTicket(String ticketId, SseTicketService.TicketData data) {
-        if (ticketId == null || data == null) return;
+        if (ticketId == null || data == null)
+            return;
         String key = "sse:ticket:" + ticketId;
         try {
             String json = objectMapper.writeValueAsString(data);
@@ -266,7 +314,8 @@ public class RedisSecurityService {
     }
 
     public SseTicketService.TicketData consumeSseTicket(String ticketId) {
-        if (ticketId == null || ticketId.isBlank()) return null;
+        if (ticketId == null || ticketId.isBlank())
+            return null;
         String key = "sse:ticket:" + ticketId;
 
         try {

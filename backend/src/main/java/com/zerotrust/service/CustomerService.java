@@ -21,6 +21,7 @@ import com.zerotrust.security.abac.SecuritySubject;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -46,6 +47,9 @@ public class CustomerService {
     private final AccountRepository accountRepository;
     private final AbacPolicyEnforcer abacPolicyEnforcer;
     private final AuditService auditService;
+
+    @Value("${app.demo.mutations-disabled:false}")
+    private boolean demoMutationsDisabled;
 
     @Transactional(readOnly = true)
     public Page<CustomerResponse> getCustomers(
@@ -258,6 +262,11 @@ public class CustomerService {
 
     @Transactional
     public void deleteCustomer(UUID id, SecuritySubject subject, SecurityContext context) {
+        if (demoMutationsDisabled) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                "Administrative mutations (customer deletion) are disabled in the public demonstration environment to protect baseline state."
+            );
+        }
         Customer customer = findEntityById(id);
 
         // Object-level authorization check: only Admin can delete

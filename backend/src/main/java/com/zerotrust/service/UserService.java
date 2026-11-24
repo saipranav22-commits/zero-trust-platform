@@ -8,6 +8,7 @@ import com.zerotrust.repository.RoleRepository;
 import com.zerotrust.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +28,9 @@ public class UserService {
     private final UserRepository  userRepository;
     private final RoleRepository  roleRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.demo.mutations-disabled:false}")
+    private boolean demoMutationsDisabled;
 
     @Transactional(readOnly = true)
     public Page<User> findAll(String email, Boolean isActive, Pageable pageable) {
@@ -56,6 +60,11 @@ public class UserService {
 
     @Transactional
     public User updateRoles(UUID userId, List<String> roleNames) {
+        if (demoMutationsDisabled) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                "Administrative mutations (role modification) are disabled in the public demonstration environment to protect baseline state."
+            );
+        }
         User user = findById(userId);
         List<Role> roles = roleRepository.findByNameIn(roleNames);
         if (roles.size() != roleNames.size()) {
@@ -78,6 +87,11 @@ public class UserService {
 
     @Transactional
     public void deactivate(UUID id) {
+        if (demoMutationsDisabled) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                "Administrative mutations (user deactivation) are disabled in the public demonstration environment to protect baseline state."
+            );
+        }
         User user = findById(id);
         user.setActive(false);
         userRepository.save(user);

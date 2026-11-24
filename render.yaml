@@ -36,11 +36,15 @@ services:
           name: syvora-redis
           property: port
       - key: JWT_SECRET
-        generateValue: true # Generates secure 256-bit secret on Render
+        sync: false # 256-bit UTF-8 secret: 64 hex chars or 44 Base64 chars (e.g. openssl rand -hex 32)
       - key: ENCRYPTION_KEY
-        generateValue: true # Generates secure key on Render
+        sync: false # REQUIRED: Exactly 32-byte (256-bit) Base64 string, 44 chars (e.g. openssl rand -base64 32)
       - key: APP_SECURITY_CORS_ALLOWED_ORIGINS
-        sync: false # Set to https://<your-project>.pages.dev
+        value: "https://syvora.pages.dev" # Exact Cloudflare Pages frontend origin (NO wildcards)
+      - key: DEMO_ADMIN_PASSWORD
+        sync: false # OPTIONAL: Set if platform owner wants an admin account; leave unset to disable public admin
+      - key: DEMO_ANALYST_PASSWORD
+        sync: false # OPTIONAL: Custom password for demo.analyst@zerotrust.com
 
   # SYVORA Redis - Render Free Key Value (Valkey 7.2.4, 25 MB RAM)
   - type: redis
