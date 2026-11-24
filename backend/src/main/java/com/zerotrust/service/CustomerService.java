@@ -88,7 +88,7 @@ public class CustomerService {
         return customerRepository.findAll(spec, pageable).map(CustomerResponse::from);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CustomerResponse getCustomerById(UUID id, SecuritySubject subject) {
         Customer customer = findEntityById(id);
 
@@ -128,7 +128,7 @@ public class CustomerService {
         return new CustomerDetailResponse(CustomerResponse.from(customer), accounts);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public String getSensitiveCustomerData(UUID id, SecuritySubject subject, SecurityContext context) {
         Customer customer = findEntityById(id);
 

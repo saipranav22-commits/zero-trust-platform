@@ -445,4 +445,13 @@ public class RedisSecurityIntegrationTest {
         assertThat(response.getContentAsString()).contains("Security state verification unavailable");
         org.mockito.Mockito.verifyNoInteractions(chain);
     }
+
+    @Test
+    @Order(12)
+    @DisplayName("12. Actuator health reports UP when Redis is reachable via PING")
+    void testActuatorHealthReportsUpWithRedisPing() {
+        ResponseEntity<String> response = restTemplate.getForEntity("/actuator/health", String.class);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).contains("\"status\":\"UP\"");
+    }
 }
