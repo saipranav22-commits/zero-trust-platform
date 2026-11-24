@@ -40,6 +40,7 @@ public class TransactionService {
     private final AuditService auditService;
     private final NotificationService notificationService;
     private final IdempotencyService idempotencyService;
+    private final jakarta.persistence.EntityManager entityManager;
 
     private static final BigDecimal MAX_TRANSACTION_LIMIT = new BigDecimal("10000000.00");
     private static final BigDecimal HIGH_VALUE_ALERT_THRESHOLD = new BigDecimal("10000.00");
@@ -217,6 +218,9 @@ public class TransactionService {
             .orElseThrow(() -> new ResourceNotFoundException("Account lock failed for: " + firstId));
         Account secondLocked = accountRepository.findByIdWithLock(secondId)
             .orElseThrow(() -> new ResourceNotFoundException("Account lock failed for: " + secondId));
+
+        entityManager.refresh(firstLocked);
+        entityManager.refresh(secondLocked);
 
         Account lockedSource = initialSource.getId().equals(firstId) ? firstLocked : secondLocked;
         Account lockedDest = initialDest.getId().equals(firstId) ? firstLocked : secondLocked;
