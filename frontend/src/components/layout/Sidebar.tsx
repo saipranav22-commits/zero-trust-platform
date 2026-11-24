@@ -1,113 +1,290 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, ShieldAlert, FileText, Users, Activity,
-  Settings, LogOut, Shield, ChevronRight, Lock
-} from 'lucide-react'
-import { useAuthStore } from '@/store/auth.store'
-import { authApi } from '@/api/auth.api'
-import toast from 'react-hot-toast'
-import clsx from 'clsx'
+  LayoutDashboard,
+  ShieldAlert,
+  FileText,
+  Activity,
+  Users,
+  Brain,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  LogOut,
+  Cpu,
+  Bell,
+} from 'lucide-react';
+import clsx from 'clsx';
+import { useAuthStore } from '@/store/auth.store';
+import { authApi } from '@/api/auth.api';
+import toast from 'react-hot-toast';
 
-const navItems = [
-  { to: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard'        },
-  { to: '/threats',    icon: ShieldAlert,      label: 'Threat Analytics' },
-  { to: '/audit',      icon: FileText,         label: 'Audit Logs'       },
-  { to: '/activity',   icon: Activity,         label: 'User Activity'    },
-  { to: '/users',      icon: Users,            label: 'User Management', adminOnly: true },
-  { to: '/ai',         icon: Shield,           label: 'AI Assistant'     },
-  { to: '/settings',   icon: Settings,         label: 'Settings'         },
-]
+// ─── Navigation Structure ────────────────────────────
+interface NavItem {
+  label: string;
+  icon: React.ElementType;
+  path: string;
+  requiredRoles?: string[];
+  end?: boolean;
+}
 
-export function Sidebar() {
-  const { user, refreshToken, logout, hasRole } = useAuthStore()
-  const navigate = useNavigate()
+interface NavGroup {
+  group: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    group: 'Overview',
+    items: [
+      { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard', end: true },
+    ],
+  },
+  {
+    group: 'Threat Center',
+    items: [
+      { label: 'Threats',  icon: ShieldAlert, path: '/threats',  requiredRoles: ['ADMIN', 'SECURITY_ANALYST', 'AUDITOR'] },
+      { label: 'Activity', icon: Activity,    path: '/activity', requiredRoles: ['ADMIN', 'SECURITY_ANALYST', 'AUDITOR'] },
+    ],
+  },
+  {
+    group: 'Audit Explorer',
+    items: [
+      { label: 'Audit Logs', icon: FileText, path: '/audit', requiredRoles: ['ADMIN', 'SECURITY_ANALYST', 'AUDITOR'] },
+    ],
+  },
+  {
+    group: 'Notifications',
+    items: [
+      { label: 'Security Alerts', icon: Bell, path: '/alerts', requiredRoles: ['ADMIN', 'SECURITY_ANALYST', 'AUDITOR'] },
+    ],
+  },
+  {
+    group: 'Access Control',
+    items: [
+      { label: 'Users', icon: Users, path: '/users', requiredRoles: ['ADMIN'] },
+    ],
+  },
+  {
+    group: 'AI Security',
+    items: [
+      { label: 'Syvora AI', icon: Brain, path: '/ai', requiredRoles: ['ADMIN', 'SECURITY_ANALYST'] },
+    ],
+  },
+  {
+    group: 'System',
+    items: [
+      { label: 'Settings', icon: Settings, path: '/settings' },
+    ],
+  },
+];
+
+// ─── Animation variants ──────────────────────────────
+const labelVar = {
+  visible: { opacity: 1, x: 0,  transition: { duration: 0.15, ease: 'easeOut' as const } },
+  hidden:  { opacity: 0, x: -8, transition: { duration: 0.1,  ease: 'easeIn'  as const } },
+};
+
+interface SidebarProps {
+  collapsed?: boolean;
+  onCollapse?: (c: boolean) => void;
+}
+
+export default function Sidebar({ collapsed: controlled, onCollapse }: SidebarProps) {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = controlled ?? internalCollapsed;
+
+  const navigate  = useNavigate();
+  const { user, refreshToken, logout, hasRole } = useAuthStore();
+
+  const toggle = () => {
+    const next = !collapsed;
+    setInternalCollapsed(next);
+    onCollapse?.(next);
+  };
+
+  useEffect(() => {
+    if (controlled !== undefined) setInternalCollapsed(controlled);
+  }, [controlled]);
 
   const handleLogout = async () => {
-    try {
-      if (refreshToken) await authApi.logout(refreshToken)
-    } catch { /* swallow */ }
-    logout()
-    navigate('/login')
-    toast.success('Logged out successfully')
-  }
+    try { if (refreshToken) await authApi.logout(refreshToken); } catch {}
+    logout();
+    toast.success('Signed out of Syvora');
+    navigate('/login');
+  };
 
-  const initials = user
+  const userInitial = user
     ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase()
-    : '?'
+    : '?';
 
-  const isAdmin = hasRole('ADMIN') || hasRole('ROLE_ADMIN')
+  // Filter nav groups/items by role
+  const visibleGroups = NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((item) => {
+      if (!item.requiredRoles) return true;
+      return item.requiredRoles.some((r) => hasRole(r));
+    }),
+  })).filter((g) => g.items.length > 0);
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 flex flex-col bg-surface-900 border-r border-slate-700/50 z-40">
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-slate-700/50">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-violet-600 flex items-center justify-center shadow-lg shadow-brand-500/25 animate-pulse-glow">
-            <Shield className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="font-bold text-white text-sm tracking-wide">ZeroTrust</p>
-            <p className="text-xs text-slate-500">Security Platform</p>
-          </div>
+    <motion.aside
+      initial={false}
+      animate={{ width: collapsed ? 64 : 240 }}
+      transition={{ duration: 0.22, ease: 'easeInOut' as const }}
+      className="fixed inset-y-0 left-0 z-40 flex flex-col bg-[#0E1117] border-r border-[#2D3642] overflow-hidden"
+    >
+      {/* ─── Logo ─────────────────────────────────── */}
+      <div className="flex items-center h-14 px-4 gap-3 shrink-0 border-b border-[#2D3642]">
+        {/* Syvora logo mark: stylized S */}
+        <div className="w-7 h-7 rounded-lg bg-[#16A34A]/15 border border-[#16A34A]/30 flex items-center justify-center shrink-0">
+          <span className="text-[#16A34A] font-bold text-sm leading-none tracking-tight select-none">S</span>
         </div>
+        <AnimatePresence mode="wait">
+          {!collapsed && (
+            <motion.div key="brand" variants={labelVar} initial="hidden" animate="visible" exit="hidden">
+              <p className="text-sm font-bold text-[#F8FAFC] whitespace-nowrap tracking-tight">SYVORA</p>
+              <p className="text-[9px] text-[#475569] whitespace-nowrap tracking-wider uppercase font-medium">AI-Powered Zero Trust Security</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        <p className="px-3 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-widest">
-          Security
-        </p>
-        {navItems.map(({ to, icon: Icon, label, adminOnly }) => {
-          if (adminOnly && !isAdmin) return null
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) => clsx(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 group',
-                isActive
-                  ? 'bg-brand-500/15 text-brand-400 border border-brand-500/20'
-                  : 'text-slate-400 hover:bg-surface-700 hover:text-slate-200 border border-transparent'
+      {/* ─── Navigation ───────────────────────────── */}
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 px-2 space-y-0">
+        {visibleGroups.map((group) => (
+          <div key={group.group}>
+            <AnimatePresence mode="wait">
+              {!collapsed && (
+                <motion.p
+                  key={`grp-${group.group}`}
+                  variants={labelVar}
+                  initial="hidden"
+                  animate="visible"
+                  exit="hidden"
+                  className="nav-group-label"
+                >
+                  {group.group}
+                </motion.p>
               )}
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className={clsx('w-4 h-4 shrink-0', isActive ? 'text-brand-400' : 'text-slate-500 group-hover:text-slate-300')} />
-                  <span className="flex-1">{label}</span>
-                  {isActive && <ChevronRight className="w-3 h-3 text-brand-400" />}
-                </>
-              )}
-            </NavLink>
-          )
-        })}
+            </AnimatePresence>
+
+            {group.items.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.end}
+                title={collapsed ? item.label : undefined}
+                className={({ isActive }) =>
+                  clsx('nav-item', isActive && 'nav-item-active', collapsed && 'justify-center px-0')
+                }
+              >
+                <item.icon className="w-[18px] h-[18px] shrink-0" />
+                <AnimatePresence mode="wait">
+                  {!collapsed && (
+                    <motion.span
+                      key={`lbl-${item.label}`}
+                      variants={labelVar}
+                      initial="hidden"
+                      animate="visible"
+                      exit="hidden"
+                      className="whitespace-nowrap text-sm"
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </NavLink>
+            ))}
+
+            <div className="h-1" />
+          </div>
+        ))}
       </nav>
 
-      {/* User Profile */}
-      <div className="px-3 py-3 border-t border-slate-700/50">
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-surface-800 border border-slate-700/30 mb-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500/80 to-violet-600/80 flex items-center justify-center text-xs font-bold text-white shrink-0">
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-200 truncate">
-              {user?.firstName} {user?.lastName}
-            </p>
-            <p className="text-xs text-slate-500 truncate">{user?.email}</p>
-          </div>
-          {isAdmin && (
-            <span className="text-xs bg-brand-500/20 text-brand-400 px-1.5 py-0.5 rounded border border-brand-500/30 font-medium">
-              Admin
-            </span>
+      {/* ─── Bottom section ───────────────────────── */}
+      <div className="border-t border-[#2D3642] px-2 py-3 space-y-0.5 shrink-0">
+        {/* Platform health */}
+        <AnimatePresence mode="wait">
+          {!collapsed && (
+            <motion.div
+              key="health"
+              variants={labelVar}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+              className="flex items-center gap-2 px-3 py-2"
+            >
+              <Cpu className="w-3.5 h-3.5 text-[#475569] shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-[#475569]">Platform Status</p>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]" />
+                  <span className="text-[10px] text-[#16A34A] font-medium">Operational</span>
+                </div>
+              </div>
+            </motion.div>
           )}
+        </AnimatePresence>
+
+        {/* User profile */}
+        <div className={clsx('flex items-center gap-3 rounded-lg px-3 py-2', collapsed ? 'justify-center' : '')}>
+          <div className="w-7 h-7 rounded-full bg-[#16A34A]/15 border border-[#16A34A]/30 flex items-center justify-center shrink-0">
+            <span className="text-xs text-[#16A34A] font-bold">{userInitial}</span>
+          </div>
+          <AnimatePresence mode="wait">
+            {!collapsed && (
+              <motion.div key="user" variants={labelVar} initial="hidden" animate="visible" exit="hidden" className="flex flex-col min-w-0">
+                <span className="text-xs text-[#F8FAFC] font-semibold truncate">
+                  {user ? `${user.firstName} ${user.lastName}` : 'User'}
+                </span>
+                <span className="text-[11px] text-[#475569] truncate">{user?.email}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+
+        {/* Sign out */}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-150 border border-transparent hover:border-red-500/20"
+          title={collapsed ? 'Sign out' : undefined}
+          className={clsx(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#64748B] w-full',
+            'transition-colors duration-150 hover:text-[#DC2626] hover:bg-[#DC2626]/5',
+            collapsed && 'justify-center'
+          )}
         >
-          <LogOut className="w-4 h-4" />
-          Sign Out
+          <LogOut className="w-[18px] h-[18px] shrink-0" />
+          <AnimatePresence mode="wait">
+            {!collapsed && (
+              <motion.span key="so" variants={labelVar} initial="hidden" animate="visible" exit="hidden" className="whitespace-nowrap">
+                Sign Out
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+
+        {/* Collapse toggle */}
+        <button
+          onClick={toggle}
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={clsx(
+            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-[#475569] w-full',
+            'transition-colors duration-150 hover:text-[#64748B] hover:bg-[#1F2530]',
+            collapsed && 'justify-center'
+          )}
+        >
+          {collapsed ? <ChevronRight className="w-[18px] h-[18px]" /> : <ChevronLeft className="w-[18px] h-[18px]" />}
+          <AnimatePresence mode="wait">
+            {!collapsed && (
+              <motion.span key="col" variants={labelVar} initial="hidden" animate="visible" exit="hidden" className="whitespace-nowrap">
+                Collapse
+              </motion.span>
+            )}
+          </AnimatePresence>
         </button>
       </div>
-    </aside>
-  )
+    </motion.aside>
+  );
 }

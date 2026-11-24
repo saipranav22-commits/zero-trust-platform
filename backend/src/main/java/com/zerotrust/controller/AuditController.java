@@ -46,11 +46,7 @@ public class AuditController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_ANALYST', 'AUDITOR')")
     @Operation(summary = "Get specific audit log by ID")
     public ResponseEntity<ApiResponse<AuditLog>> getLogById(@PathVariable UUID id) {
-        return ResponseEntity.ok(ApiResponse.success(
-            auditService.search(null, null, null, null, null,
-                Pageable.ofSize(1)).getContent().stream().findFirst()
-                .orElseThrow(() -> new com.zerotrust.exception.ResourceNotFoundException("Audit log not found: " + id))
-        ));
+        return ResponseEntity.ok(ApiResponse.success(auditService.getById(id)));
     }
 
     @GetMapping("/logs/{id}/verify")
@@ -64,6 +60,36 @@ public class AuditController {
                                     : "⚠️ Log integrity check FAILED — possible tampering"),
             valid ? "Integrity verified" : "Integrity check failed"
         ));
+    }
+
+    @GetMapping("/chain/verify")
+    @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
+    @Operation(summary = "Verify audit chain integrity across records", description = "Verifies monotonic sequence, link continuity and cryptographic content hashes")
+    public ResponseEntity<ApiResponse<com.zerotrust.dto.response.AuditChainVerificationResult>> verifyChain(
+            @RequestParam(required = false) Long fromSeq,
+            @RequestParam(required = false) Long toSeq) {
+        var result = auditService.verifyChain(fromSeq, toSeq);
+        return ResponseEntity.ok(ApiResponse.success(
+            result,
+            result.chainValid() ? "Chain integrity verified" : "Chain integrity violation detected"
+        ));
+    }
+
+    @PostMapping("/chain/checkpoint")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Create an immutable audit chain checkpoint")
+    public ResponseEntity<ApiResponse<com.zerotrust.entity.AuditCheckpoint>> createCheckpoint(
+            org.springframework.security.core.Authentication authentication) {
+        String actor = authentication != null ? authentication.getName() : "ADMIN";
+        var checkpoint = auditService.createCheckpoint(actor);
+        return ResponseEntity.ok(ApiResponse.success(checkpoint, "Checkpoint created"));
+    }
+
+    @GetMapping("/chain/checkpoints")
+    @PreAuthorize("hasAnyRole('ADMIN', 'AUDITOR')")
+    @Operation(summary = "Get recent audit chain checkpoints")
+    public ResponseEntity<ApiResponse<List<com.zerotrust.entity.AuditCheckpoint>>> getRecentCheckpoints() {
+        return ResponseEntity.ok(ApiResponse.success(auditService.getRecentCheckpoints()));
     }
 
     @GetMapping("/users/{userId}/history")

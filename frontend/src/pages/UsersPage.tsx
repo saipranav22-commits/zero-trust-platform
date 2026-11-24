@@ -1,142 +1,251 @@
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Users, Lock, Unlock, UserX, Check } from 'lucide-react'
-import { Layout } from '@/components/layout/Layout'
-import { RoleBadge } from '@/components/ui/Badge'
-import { Pagination, EmptyState } from '@/components/ui/Shared'
-import { userApi } from '@/api/auth.api'
-import { format } from 'date-fns'
-import toast from 'react-hot-toast'
-import type { User } from '@/types'
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
+import { Users, Unlock, UserX, AlertCircle, RefreshCw, Search } from 'lucide-react';
+import toast from 'react-hot-toast';
+import clsx from 'clsx';
+import { Layout } from '@/components/layout/Layout';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { RoleBadge } from '@/components/ui/Badge';
+import { Pagination, EmptyState } from '@/components/ui/Shared';
+import { userApi } from '@/api/auth.api';
+import type { User } from '@/types';
 
 export function UsersPage() {
-  const [page, setPage] = useState(0)
-  const [search, setSearch] = useState('')
-  const qc = useQueryClient()
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+  const queryClient = useQueryClient();
 
-  const { data, isLoading, refetch } = useQuery({
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: ['users', page, search],
-    queryFn: () => userApi.getUsers({ email: search, page, size: 20 }),
-  })
+    queryFn: () => userApi.getUsers({ page, size: pageSize, email: search }),
+  });
 
   const unlockMutation = useMutation({
-    mutationFn: (id: string) => userApi.unlockUser(id),
-    onSuccess: () => { toast.success('User unlocked'); qc.invalidateQueries({ queryKey: ['users'] }) },
-  })
+    mutationFn: (userId: string) => userApi.unlockUser(userId),
+    onSuccess: () => {
+      toast.success('User account unlocked successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: () => {
+      toast.error('Failed to unlock user');
+    },
+  });
 
   const deactivateMutation = useMutation({
-    mutationFn: (id: string) => userApi.deactivateUser(id),
-    onSuccess: () => { toast.success('User deactivated'); qc.invalidateQueries({ queryKey: ['users'] }) },
-  })
+    mutationFn: (userId: string) => userApi.deactivateUser(userId),
+    onSuccess: () => {
+      toast.success('User account deactivated successfully');
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+    onError: () => {
+      toast.error('Failed to deactivate user');
+    },
+  });
+
+  const users: User[] = data?.content ?? [];
+  const totalCount = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
+
+  if (isError) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center py-20">
+          <div className="w-12 h-12 rounded-xl bg-[#1F2530] border border-[#2D3642] flex items-center justify-center mb-4">
+            <AlertCircle className="w-6 h-6 text-[#DC2626]" />
+          </div>
+          <p className="text-sm font-semibold text-[#F8FAFC] mb-1">Failed to load users</p>
+          <p className="text-xs text-[#64748B] mb-4">
+            {(error as Error)?.message ?? 'An unexpected error occurred'}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="sentinel-btn-secondary flex items-center gap-2 text-sm"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
-    <Layout title="User Management" subtitle="Manage users, roles, and account access" onRefresh={refetch} isRefreshing={isLoading}>
+    <Layout onRefresh={refetch} isRefreshing={isLoading}>
+      <PageHeader
+        title="User Management"
+        description="Configure client identities, assign security profiles, and manage system lockout statuses"
+        icon={<Users className="w-5 h-5" />}
+        onRefresh={refetch}
+        isRefreshing={isLoading}
+      />
 
-      {/* Search */}
-      <div className="card p-4 mb-4 flex items-center gap-3">
-        <Users className="w-4 h-4 text-slate-500" />
-        <input type="text" placeholder="Search by email…" value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0) }}
-          className="input-dark flex-1 max-w-xs" />
-        <span className="text-xs text-slate-500 ml-auto">
-          {data?.totalElements ?? 0} users found
-        </span>
-      </div>
-
-      {/* Table */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="border-b border-slate-700/50">
-              <tr>
-                {['User', 'Roles', 'Status', 'Failed Logins', 'Last Login', 'Joined', 'Actions'].map((h) => (
-                  <th key={h} className="text-left py-3 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading && Array.from({ length: 8 }).map((_, i) => (
-                <tr key={i} className="border-b border-slate-700/20">
-                  {Array.from({ length: 7 }).map((_, j) => (
-                    <td key={j} className="py-4 px-4"><div className="skeleton h-4 rounded w-20" /></td>
-                  ))}
-                </tr>
-              ))}
-              {!isLoading && !data?.content?.length && (
-                <tr><td colSpan={7}>
-                  <EmptyState message="No users found" icon={<Users className="w-6 h-6" />} />
-                </td></tr>
-              )}
-              {data?.content?.map((user: User) => (
-                <tr key={user.id} className="border-b border-slate-700/20 hover:bg-surface-700/30 transition-colors group">
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500/60 to-violet-600/60 flex items-center justify-center text-xs font-bold text-white shrink-0">
-                        {user.firstName?.[0]}{user.lastName?.[0]}
-                      </div>
-                      <div>
-                        <p className="text-sm text-slate-200 font-medium">{user.firstName} {user.lastName}</p>
-                        <p className="text-xs text-slate-500">{user.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex flex-wrap gap-1">
-                      {user.roles?.map((r: string) => <RoleBadge key={r} role={r} />)}
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    {user.isLocked ? (
-                      <span className="badge bg-red-500/15 text-red-300 border border-red-500/25">
-                        <Lock className="w-3 h-3" /> Locked
-                      </span>
-                    ) : user.isActive ? (
-                      <span className="badge bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-                        <Check className="w-3 h-3" /> Active
-                      </span>
-                    ) : (
-                      <span className="badge bg-slate-500/15 text-slate-400 border border-slate-500/25">Inactive</span>
-                    )}
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className={`font-mono text-sm ${user.failedLoginAttempts > 3 ? 'text-orange-400' : 'text-slate-400'}`}>
-                      {user.failedLoginAttempts}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4 text-xs text-slate-500">
-                    {user.lastLoginAt ? format(new Date(user.lastLoginAt), 'MM/dd HH:mm') : '—'}
-                  </td>
-                  <td className="py-4 px-4 text-xs text-slate-500">
-                    {format(new Date(user.createdAt), 'MM/dd/yyyy')}
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {user.isLocked && (
-                        <button onClick={() => unlockMutation.mutate(user.id)} title="Unlock account"
-                          className="p-1.5 rounded-md text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all">
-                          <Unlock className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      {user.isActive && (
-                        <button onClick={() => deactivateMutation.mutate(user.id)} title="Deactivate user"
-                          className="p-1.5 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                          <UserX className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="space-y-6">
+        {/* Toolbar */}
+        <div className="sentinel-toolbar">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#64748B]" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+              placeholder="Search users by email address…"
+              className="sentinel-input pl-9 w-72 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2 text-sm text-[#64748B] font-medium ml-auto">
+            <Users className="w-4 h-4" />
+            <span>{totalCount} registered users</span>
+          </div>
         </div>
-        {data && data.totalPages > 1 && (
-          <Pagination page={data.page} totalPages={data.totalPages}
-            totalElements={data.totalElements} size={data.size} onPageChange={setPage} />
-        )}
+
+        {/* Table */}
+        <div className="sentinel-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="sentinel-table">
+              <thead className="sentinel-thead">
+                <tr>
+                  <th className="sentinel-th">User</th>
+                  <th className="sentinel-th">Security Roles</th>
+                  <th className="sentinel-th">Account Status</th>
+                  <th className="sentinel-th">Failed Logins</th>
+                  <th className="sentinel-th">Last Login Timestamp</th>
+                  <th className="sentinel-th">Date Joined</th>
+                  <th className="sentinel-th text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading
+                  ? Array.from({ length: 5 }).map((_, i) => (
+                      <tr key={i}>
+                        {Array.from({ length: 7 }).map((_, j) => (
+                          <td key={j} className="sentinel-td">
+                            <div className="skeleton h-4 w-20 rounded" />
+                          </td>
+                        ))}
+                      </tr>
+                    ))
+                  : users.map((user) => (
+                      <tr key={user.id} className="sentinel-tr group">
+                        {/* User Identity */}
+                        <td className="sentinel-td">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-[#16A34A]/10 border border-[#16A34A]/25 text-[#16A34A] flex items-center justify-center text-xs font-semibold">
+                              {user.firstName?.[0]?.toUpperCase()}{user.lastName?.[0]?.toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm text-[#F8FAFC] font-semibold">
+                                {user.fullName || `${user.firstName} ${user.lastName}`}
+                              </p>
+                              <p className="text-xs text-[#64748B]">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        {/* Security Roles */}
+                        <td className="sentinel-td">
+                          <div className="flex flex-wrap gap-1">
+                            {(user.roleNames ?? user.roles?.map(r => r.name) ?? []).map((role: string) => (
+                              <RoleBadge key={role} role={role} />
+                            ))}
+                          </div>
+                        </td>
+                        {/* Account Status */}
+                        <td className="sentinel-td">
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={clsx(
+                                'w-2 h-2 rounded-full',
+                                user.locked || user.accountCurrentlyLocked ? 'bg-[#DC2626]' : user.active ? 'bg-[#16A34A]' : 'bg-[#64748B]'
+                              )}
+                            />
+                            <span className="text-xs font-medium text-[#94A3B8]">
+                              {user.locked || user.accountCurrentlyLocked ? 'Locked' : user.active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </td>
+                        {/* Failed Logins */}
+                        <td className="sentinel-td">
+                          <span
+                            className={clsx(
+                              'text-xs font-semibold font-mono',
+                              (user.failedLoginAttempts ?? 0) > 3 ? 'text-[#D97706]' : 'text-[#94A3B8]'
+                            )}
+                          >
+                            {user.failedLoginAttempts ?? 0}
+                          </span>
+                        </td>
+                        {/* Last Login */}
+                        <td className="sentinel-td text-xs text-[#94A3B8] font-medium">
+                          {user.lastLoginAt
+                            ? format(new Date(user.lastLoginAt), 'MMM d, yyyy HH:mm')
+                            : '—'}
+                        </td>
+                        {/* Joined */}
+                        <td className="sentinel-td text-xs text-[#64748B] font-medium">
+                          {user.createdAt
+                            ? format(new Date(user.createdAt), 'MMM d, yyyy')
+                            : '—'}
+                        </td>
+                        {/* Action buttons */}
+                        <td className="sentinel-td text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                            {(user.locked || user.accountCurrentlyLocked) && (
+                              <button
+                                onClick={() => unlockMutation.mutate(user.id)}
+                                disabled={unlockMutation.isPending}
+                                className="sentinel-btn-ghost p-1.5 text-[#94A3B8] hover:text-[#16A34A]"
+                                title="Unlock Account"
+                              >
+                                <Unlock className="w-4 h-4" />
+                              </button>
+                            )}
+                            {user.active && (
+                              <button
+                                onClick={() => deactivateMutation.mutate(user.id)}
+                                disabled={deactivateMutation.isPending}
+                                className="sentinel-btn-ghost p-1.5 text-[#94A3B8] hover:text-[#DC2626]"
+                                title="Deactivate Account"
+                              >
+                                <UserX className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+              </tbody>
+            </table>
+          </div>
+
+          {!isLoading && users.length === 0 && (
+            <EmptyState
+              icon={<Users className="w-6 h-6" />}
+              message={search ? 'No users found matching query' : 'No registered users in system database'}
+              description="System has no configured client profiles."
+            />
+          )}
+
+          {totalPages > 1 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalElements={totalCount}
+              size={pageSize}
+              onPageChange={setPage}
+            />
+          )}
+        </div>
       </div>
     </Layout>
-  )
+  );
 }

@@ -20,6 +20,12 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID>,
     /** Fetch the latest log for hash chaining */
     Optional<AuditLog> findTopByOrderByCreatedAtDesc();
 
+    Optional<AuditLog> findTopByOrderBySequenceNumberDesc();
+
+    List<AuditLog> findBySequenceNumberBetweenOrderBySequenceNumberAsc(Long fromSeq, Long toSeq);
+
+    List<AuditLog> findAllByOrderBySequenceNumberAsc();
+
     long countByCreatedAtAfter(Instant after);
 
     long countByStatusAndCreatedAtAfter(AuditStatus status, Instant after);

@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   # ─── PostgreSQL ────────────────────────────────────
   postgres:
@@ -7,17 +5,33 @@ services:
     container_name: zt-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB:       zerotrust_db
-      POSTGRES_USER:     zerotrust
-      POSTGRES_PASSWORD: zerotrust123
+      POSTGRES_DB:       "${POSTGRES_DB:-zerotrust_db}"
+      POSTGRES_USER:     "${POSTGRES_USER:-zerotrust}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}"
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zerotrust -d zerotrust_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zerotrust} -d ${POSTGRES_DB:-zerotrust_db}"]
       interval: 10s
       timeout: 5s
+      retries: 5
+
+  # ─── Redis (Distributed Rate Limiting & Security State) ──
+  redis:
+    image: redis:7.4-alpine
+    container_name: zt-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 5
 
   # ─── Backend (Spring Boot) ─────────────────────────
@@ -28,10 +42,14 @@ services:
     container_name: zt-backend
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL:      jdbc:postgresql://postgres:5432/zerotrust_db
-      SPRING_DATASOURCE_USERNAME: zerotrust
-      SPRING_DATASOURCE_PASSWORD: zerotrust123
-      JWT_SECRET:                 "zerotrust-platform-super-secret-key-for-hs256-algorithm-must-be-at-least-256-bits"
+      SPRING_DATASOURCE_URL:      "jdbc:postgresql://postgres:5432/${POSTGRES_DB:-zerotrust_db}"
+      SPRING_DATASOURCE_USERNAME: "${POSTGRES_USER:-zerotrust}"
+      SPRING_DATASOURCE_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}"
+      SPRING_DATA_REDIS_HOST:     redis
+      SPRING_DATA_REDIS_PORT:     6379
+      SPRING_DATA_REDIS_PASSWORD: "${REDIS_PASSWORD:-}"
+      JWT_SECRET:                 "${JWT_SECRET:?JWT_SECRET environment variable is required}"
+      ENCRYPTION_KEY:             "${ENCRYPTION_KEY:?ENCRYPTION_KEY environment variable is required (must be 256-bit Base64)}"
       APP_AI_ENABLED:             "${GEMINI_AI_ENABLED:-false}"
       APP_AI_GEMINI_API_KEY:      "${GEMINI_API_KEY:-}"
       APP_SECURITY_CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:80"
@@ -39,6 +57,8 @@ services:
       - "8080:8080"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -63,3 +83,5 @@ services:
 volumes:
   postgres_data:
     name: zt-postgres-data
+  redis_data:
+    name: zt-redis-data

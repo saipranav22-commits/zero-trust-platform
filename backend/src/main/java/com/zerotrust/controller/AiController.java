@@ -78,4 +78,28 @@ public class AiController {
             Map.of("report", report, "generatedAt", java.time.Instant.now().toString()),
             "Security report generated"));
     }
+
+    @PostMapping("/explain-incident")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SECURITY_ANALYST')")
+    @Operation(summary = "Get AI explanation and mitigation plan for a security incident",
+               description = "Provides tactical containment steps and impact analysis from sanitized metadata")
+    public ResponseEntity<ApiResponse<Map<String, String>>> explainIncident(
+            @RequestBody Map<String, Object> body) {
+        String incidentNumber = (String) body.getOrDefault("incidentNumber", "INC-UNKNOWN");
+        String title          = (String) body.getOrDefault("title", "Unknown Security Incident");
+        String category       = (String) body.getOrDefault("category", "SECURITY_ALERT");
+        String severity       = (String) body.getOrDefault("severity", "MEDIUM");
+        String sourceIp       = (String) body.getOrDefault("sourceIp", "unknown");
+        String targetResource = (String) body.getOrDefault("targetResource", "unknown");
+        String status         = (String) body.getOrDefault("status", "OPEN");
+        @SuppressWarnings("unchecked")
+        java.util.List<String> timeline = (java.util.List<String>) body.getOrDefault("timeline", java.util.List.of());
+
+        String explanation = aiService.explainIncident(
+                incidentNumber, title, category, severity, sourceIp, targetResource, status, timeline);
+
+        return ResponseEntity.ok(ApiResponse.success(
+                Map.of("incidentNumber", incidentNumber, "explanation", explanation),
+                "Incident analysis generated"));
+    }
 }

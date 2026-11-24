@@ -2,7 +2,10 @@ package com.zerotrust;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
@@ -18,8 +21,10 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  *   <li>Optional RAG-powered AI security assistant (Gemini)</li>
  * </ul>
  */
-@SpringBootApplication
+@SpringBootApplication(exclude = {RedisRepositoriesAutoConfiguration.class})
 @EnableJpaAuditing
+@EnableJpaRepositories(basePackages = "com.zerotrust.repository")
+@EntityScan(basePackages = "com.zerotrust.entity")
 @EnableScheduling
 public class ZeroTrustApplication {
 

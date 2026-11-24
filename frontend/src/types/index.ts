@@ -1,16 +1,28 @@
 // ─── Auth Types ──────────────────────────────────────
+export interface Role {
+  id: string
+  name: string
+  description: string
+  createdAt: string
+}
+
 export interface User {
   id: string
   email: string
   firstName: string
   lastName: string
-  roles: string[]
-  isActive: boolean
-  isLocked: boolean
+  fullName: string
+  roles: Role[]          // Array of Role objects from the backend
+  roleNames: string[]    // Array of role name strings (ROLE_ADMIN, etc.)
+  active: boolean        // Backend uses 'active' not 'isActive'
+  locked: boolean        // Backend uses 'locked' not 'isLocked'
+  accountCurrentlyLocked: boolean
   failedLoginAttempts: number
+  lockUntil?: string
   lastLoginAt?: string
   lastLoginIp?: string
   createdAt: string
+  updatedAt: string
 }
 
 export interface AuthResponse {
@@ -65,6 +77,9 @@ export interface ThreatEvent {
   attackPayload?: string
   detectionRule?: string
   status: ThreatStatus
+  correlationId?: string
+  actionTaken?: string
+  riskScore?: number
   resolvedBy?: string
   resolvedAt?: string
   notes?: string
@@ -72,11 +87,46 @@ export interface ThreatEvent {
   updatedAt: string
 }
 
+// ─── Incident Types ───────────────────────────────────
+export type IncidentStatus = 'OPEN' | 'ACKNOWLEDGED' | 'INVESTIGATING' | 'RESOLVED'
+
+export interface IncidentTimelineEntry {
+  id: string
+  action: string
+  fromStatus?: IncidentStatus
+  toStatus?: IncidentStatus
+  performedBy: string
+  notes?: string
+  createdAt: string
+}
+
+export interface Incident {
+  id: string
+  incidentNumber: string
+  title: string
+  description?: string
+  status: IncidentStatus
+  severity: Severity
+  category: string
+  correlationId?: string
+  relatedThreatEventId?: string
+  sourceIp?: string
+  targetResource?: string
+  assignedTo?: string
+  createdBy?: string
+  resolutionNotes?: string
+  resolvedAt?: string
+  createdAt: string
+  updatedAt: string
+  timeline?: IncidentTimelineEntry[]
+}
+
 // ─── Audit Types ──────────────────────────────────────
 export type AuditStatus = 'SUCCESS' | 'FAILURE' | 'BLOCKED'
 
 export interface AuditLog {
   id: string
+  sequenceNumber?: number
   userId?: string
   userEmail?: string
   action: string
@@ -89,6 +139,26 @@ export interface AuditLog {
   details?: string
   previousHash?: string
   currentHash?: string
+  createdAt: string
+}
+
+export interface AuditChainVerificationResult {
+  chainValid: boolean
+  totalRecordsVerified: number
+  firstSequence?: number
+  lastSequence?: number
+  brokenSequence?: number
+  brokenId?: string
+  failureReason: string
+  verifiedAt: string
+}
+
+export interface AuditCheckpoint {
+  id: string
+  sequenceNumber: number
+  checkpointHash: string
+  recordCount: number
+  createdBy: string
   createdAt: string
 }
 

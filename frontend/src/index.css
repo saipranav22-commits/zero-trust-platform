@@ -2,140 +2,334 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Base ─────────────────────────────────────── */
+/* ─── SentinelX Design Tokens ───────────────────── */
+:root {
+  --bg:           #0E1117;
+  --surface:      #171B22;
+  --surface-2:    #1F2530;
+  --border:       #2D3642;
+  --border-light: #3A4150;
+  --text-primary: #F8FAFC;
+  --text-sec:     #94A3B8;
+  --text-muted:   #64748B;
+  --accent:       #16A34A;
+  --accent-hover: #15803D;
+  --accent-dim:   rgba(22,163,74,0.12);
+  --accent-ring:  rgba(22,163,74,0.35);
+  --warning:      #D97706;
+  --warning-dim:  rgba(217,119,6,0.12);
+  --critical:     #DC2626;
+  --critical-dim: rgba(220,38,38,0.12);
+  --info:         #475569;
+  --success:      #16A34A;
+}
+
+/* ─── Base ───────────────────────────────────────── */
 @layer base {
   *, *::before, *::after { box-sizing: border-box; }
-
   html { scroll-behavior: smooth; }
 
   body {
-    @apply bg-surface-900 text-slate-100 font-sans antialiased;
+    background-color: var(--bg);
+    color: var(--text-primary);
+    font-family: 'Inter', 'IBM Plex Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-size: 14px;
+    line-height: 1.5;
   }
 
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { @apply bg-surface-900; }
-  ::-webkit-scrollbar-thumb { @apply bg-surface-600 rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-500; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
 
-  ::selection { @apply bg-brand-500/30 text-white; }
+  ::selection { background: var(--accent-dim); color: var(--text-primary); }
 }
 
-/* ─── Utilities ─────────────────────────────────── */
-@layer utilities {
-  .glass {
-    background: rgba(30, 41, 59, 0.6);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(148, 163, 184, 0.08);
+/* ─── Component Classes ──────────────────────────── */
+@layer components {
+
+  /* ── Cards ────────────────────────────────── */
+  .sentinel-card {
+    @apply bg-[#171B22] border border-[#2D3642] rounded-xl;
+  }
+  .sentinel-card-hover {
+    @apply sentinel-card transition-colors duration-150 cursor-pointer;
+  }
+  .sentinel-card-hover:hover {
+    border-color: rgba(22, 163, 74, 0.3);
+  }
+  .sentinel-card-active {
+    border-color: rgba(22, 163, 74, 0.5) !important;
   }
 
-  .glass-dark {
-    background: rgba(15, 23, 42, 0.8);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(148, 163, 184, 0.06);
+  /* ── Inputs ───────────────────────────────── */
+  .sentinel-input {
+    @apply bg-[#1F2530] border border-[#2D3642] rounded-lg px-3 py-2
+           text-[#F8FAFC] placeholder:text-[#64748B]
+           focus:outline-none focus:ring-1 focus:ring-[#16A34A]/40 focus:border-[#16A34A]/50
+           transition-all duration-150 w-full text-sm;
+  }
+  .sentinel-select {
+    @apply sentinel-input appearance-none cursor-pointer;
+  }
+  .sentinel-textarea {
+    @apply sentinel-input resize-none;
   }
 
-  .text-gradient {
-    background: linear-gradient(135deg, #818cf8, #a78bfa, #c084fc);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  /* ── Buttons ──────────────────────────────── */
+  .sentinel-btn {
+    @apply flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium
+           transition-all duration-150 focus:outline-none disabled:opacity-40
+           disabled:cursor-not-allowed whitespace-nowrap;
+  }
+  .sentinel-btn-primary {
+    @apply sentinel-btn bg-[#16A34A] hover:bg-[#15803D] text-white
+           focus:ring-2 focus:ring-[#16A34A]/30;
+  }
+  .sentinel-btn-secondary {
+    @apply sentinel-btn bg-[#1F2530] border border-[#2D3642] text-[#94A3B8]
+           hover:text-[#F8FAFC] hover:border-[#3A4150] hover:bg-[#252D3A]
+           focus:ring-1 focus:ring-[#2D3642];
+  }
+  .sentinel-btn-danger {
+    @apply sentinel-btn bg-[#DC2626]/10 border border-[#DC2626]/25 text-[#DC2626]
+           hover:bg-[#DC2626]/20 hover:border-[#DC2626]/40;
+  }
+  .sentinel-btn-ghost {
+    @apply sentinel-btn text-[#64748B] hover:text-[#94A3B8] hover:bg-[#1F2530];
+  }
+  .sentinel-btn-icon {
+    @apply w-8 h-8 flex items-center justify-center rounded-lg text-[#64748B]
+           hover:text-[#94A3B8] hover:bg-[#1F2530] transition-colors duration-150;
   }
 
-  .text-gradient-danger {
-    background: linear-gradient(135deg, #f87171, #fb923c);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  /* ── Badges ───────────────────────────────── */
+  .sentinel-badge {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border;
   }
 
-  .border-gradient {
-    border: 1px solid transparent;
-    background: linear-gradient(var(--surface-800), var(--surface-800)) padding-box,
-                linear-gradient(135deg, #6366f1, #a855f7) border-box;
+  /* Severity badges */
+  .severity-critical {
+    @apply sentinel-badge bg-[#DC2626]/10 text-[#FCA5A5] border-[#DC2626]/25;
+  }
+  .severity-high {
+    @apply sentinel-badge bg-[#D97706]/10 text-[#FCD34D] border-[#D97706]/25;
+  }
+  .severity-medium {
+    @apply sentinel-badge bg-[#475569]/15 text-[#94A3B8] border-[#475569]/30;
+  }
+  .severity-low {
+    @apply sentinel-badge bg-[#16A34A]/10 text-[#86EFAC] border-[#16A34A]/25;
   }
 
-  .card {
-    @apply bg-surface-800 border border-slate-700/50 rounded-xl;
+  /* Status badges */
+  .status-detected {
+    @apply sentinel-badge bg-[#DC2626]/10 text-[#FCA5A5] border-[#DC2626]/25;
+  }
+  .status-investigating {
+    @apply sentinel-badge bg-[#D97706]/10 text-[#FCD34D] border-[#D97706]/25;
+  }
+  .status-resolved {
+    @apply sentinel-badge bg-[#16A34A]/10 text-[#86EFAC] border-[#16A34A]/25;
+  }
+  .status-false_positive {
+    @apply sentinel-badge bg-[#1F2530] text-[#64748B] border-[#2D3642];
   }
 
-  .card-hover {
-    @apply card transition-all duration-200 hover:border-brand-500/30 hover:shadow-lg hover:shadow-brand-500/5;
+  /* Audit status */
+  .audit-success {
+    @apply sentinel-badge bg-[#16A34A]/10 text-[#86EFAC] border-[#16A34A]/25;
+  }
+  .audit-failure {
+    @apply sentinel-badge bg-[#DC2626]/10 text-[#FCA5A5] border-[#DC2626]/25;
+  }
+  .audit-blocked {
+    @apply sentinel-badge bg-[#D97706]/10 text-[#FCD34D] border-[#D97706]/25;
   }
 
-  .input-dark {
-    @apply bg-surface-700 border border-slate-600 rounded-lg px-3 py-2.5 text-slate-100
-           placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500/50
-           focus:border-brand-500/50 transition-all duration-200 w-full text-sm;
+  /* Role badges */
+  .role-admin {
+    @apply sentinel-badge bg-[#16A34A]/10 text-[#86EFAC] border-[#16A34A]/25;
+  }
+  .role-analyst {
+    @apply sentinel-badge bg-[#D97706]/10 text-[#FCD34D] border-[#D97706]/25;
+  }
+  .role-auditor {
+    @apply sentinel-badge bg-[#475569]/15 text-[#94A3B8] border-[#475569]/30;
+  }
+  .role-employee {
+    @apply sentinel-badge bg-[#1F2530] text-[#64748B] border-[#2D3642];
   }
 
-  .btn-primary {
-    @apply bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-500 hover:to-violet-500
-           text-white font-semibold px-4 py-2.5 rounded-lg transition-all duration-200
-           focus:outline-none focus:ring-2 focus:ring-brand-500/50 disabled:opacity-50
-           disabled:cursor-not-allowed flex items-center gap-2 text-sm;
+  /* ── Table ────────────────────────────────── */
+  .sentinel-table { @apply w-full text-sm; }
+  .sentinel-thead { @apply sticky top-0 bg-[#171B22] z-10; }
+  .sentinel-th {
+    @apply text-left py-3 px-4 text-xs font-medium text-[#64748B]
+           uppercase tracking-wide whitespace-nowrap border-b border-[#2D3642];
+  }
+  .sentinel-td { @apply py-3 px-4 border-b border-[#2D3642]/60; }
+  .sentinel-tr {
+    @apply transition-colors duration-100 hover:bg-[#1F2530]/70;
+  }
+  .sentinel-tr-clickable {
+    @apply sentinel-tr cursor-pointer;
   }
 
-  .btn-secondary {
-    @apply bg-surface-700 hover:bg-surface-600 border border-slate-600 hover:border-slate-500
-           text-slate-200 font-medium px-4 py-2.5 rounded-lg transition-all duration-200
-           focus:outline-none focus:ring-2 focus:ring-slate-500/30 flex items-center gap-2 text-sm;
+  /* ── Form Labels ──────────────────────────── */
+  .sentinel-label {
+    @apply text-xs font-medium text-[#94A3B8] block mb-1.5;
   }
 
-  .btn-danger {
-    @apply bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/50
-           text-red-400 hover:text-red-300 font-medium px-4 py-2.5 rounded-lg transition-all
-           duration-200 flex items-center gap-2 text-sm;
+  /* ── Nav Item ─────────────────────────────── */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm
+           transition-colors duration-150 border-l-2 border-transparent
+           text-[#64748B] hover:text-[#94A3B8] hover:bg-[#1F2530];
+  }
+  .nav-item-active {
+    @apply border-l-2 border-[#16A34A] text-[#F8FAFC] bg-[#16A34A]/5;
+  }
+  .nav-group-label {
+    @apply text-[10px] font-semibold text-[#475569] uppercase tracking-widest
+           px-3 py-1.5 mt-3 mb-0.5;
   }
 
-  .badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium;
+  /* ── Code blocks ──────────────────────────── */
+  .sentinel-code {
+    @apply bg-[#0E1117] border border-[#2D3642] rounded-lg p-3
+           font-mono text-xs text-[#F8FAFC] overflow-x-auto;
+  }
+  .sentinel-inline-code {
+    @apply bg-[#1F2530] border border-[#2D3642] rounded px-1.5 py-0.5
+           font-mono text-xs text-[#16A34A];
   }
 
-  .severity-critical { @apply badge bg-red-500/20 text-red-300 border border-red-500/30; }
-  .severity-high     { @apply badge bg-orange-500/20 text-orange-300 border border-orange-500/30; }
-  .severity-medium   { @apply badge bg-amber-500/20 text-amber-300 border border-amber-500/30; }
-  .severity-low      { @apply badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/30; }
+  /* ── Divider ──────────────────────────────── */
+  .sentinel-divider {
+    @apply border-t border-[#2D3642];
+  }
 
-  .status-detected      { @apply badge bg-blue-500/20 text-blue-300 border border-blue-500/30; }
-  .status-investigating { @apply badge bg-purple-500/20 text-purple-300 border border-purple-500/30; }
-  .status-resolved      { @apply badge bg-emerald-500/20 text-emerald-300 border border-emerald-500/30; }
-  .status-false_positive { @apply badge bg-slate-500/20 text-slate-400 border border-slate-500/30; }
-
-  .animate-in { animation: fadeIn 0.3s ease-out, slideUp 0.4s ease-out; }
+  /* ── Toolbar ──────────────────────────────── */
+  .sentinel-toolbar {
+    @apply sentinel-card p-4 mb-4 flex flex-wrap gap-3 items-center;
+  }
 }
 
-/* ─── Login page background ──────────────────── */
-.login-bg {
-  background: radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 60%),
-              radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.12) 0%, transparent 60%),
-              radial-gradient(ellipse at 60% 80%, rgba(59, 130, 246, 0.1) 0%, transparent 60%),
-              #020617;
-}
-
-/* ─── Recharts overrides ─────────────────────── */
+/* ─── Recharts Override ──────────────────────────── */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
-  stroke: rgba(148, 163, 184, 0.08) !important;
+  stroke: #2D3642 !important;
 }
 .recharts-tooltip-wrapper .recharts-default-tooltip {
-  background: #1e293b !important;
-  border: 1px solid rgba(148, 163, 184, 0.1) !important;
+  background: #1F2530 !important;
+  border: 1px solid #2D3642 !important;
   border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5) !important;
 }
-.recharts-legend-item-text { color: #94a3b8 !important; }
+.recharts-legend-item-text { color: #94A3B8 !important; }
+.recharts-text { fill: #64748B !important; }
 
-/* ─── Animations ─────────────────────────────── */
-@keyframes fadeIn    { from { opacity: 0; } to { opacity: 1; } }
-@keyframes slideUp   { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes shimmer   { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-@keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); } 50% { box-shadow: 0 0 0 8px rgba(99, 102, 241, 0); } }
-
+/* ─── Skeleton ───────────────────────────────────── */
 .skeleton {
-  background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+  background: linear-gradient(90deg, #1F2530 25%, #252D3A 50%, #1F2530 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 6px;
 }
+
+/* ─── Keyframes ──────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+@keyframes ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+.animate-in {
+  animation: fadeIn 0.2s ease-out, slideUp 0.25s ease-out;
+}
+.animate-in-right {
+  animation: fadeIn 0.2s ease-out, slideRight 0.2s ease-out;
+}
+.live-dot {
+  animation: livePulse 2s ease-in-out infinite;
+}
+.ping-dot {
+  animation: ping 1.4s cubic-bezier(0,0,0.2,1) infinite;
+}
+
+/* ─── Prose (AI responses) ───────────────────────── */
+.sentinel-prose p   { @apply text-[#F8FAFC] text-sm leading-relaxed mb-3; }
+.sentinel-prose h1  { @apply text-[#F8FAFC] text-base font-semibold mb-3 mt-4; }
+.sentinel-prose h2  { @apply text-[#F8FAFC] text-sm font-semibold mb-2 mt-3 pb-1 border-b border-[#2D3642]; }
+.sentinel-prose h3  { @apply text-[#F8FAFC] text-sm font-medium mb-2 mt-3; }
+.sentinel-prose ul  { @apply text-sm list-disc list-inside space-y-1 mb-3 ml-2; }
+.sentinel-prose ol  { @apply text-sm list-decimal list-inside space-y-1 mb-3 ml-2; }
+.sentinel-prose li  { @apply text-[#94A3B8] text-sm; }
+.sentinel-prose strong { @apply text-[#F8FAFC] font-semibold; }
+.sentinel-prose blockquote {
+  @apply border-l-2 border-[#16A34A] pl-3 text-[#94A3B8] text-sm italic mb-3;
+}
+
+/* ─── Command Palette ────────────────────────────── */
+.cmd-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+  z-index: 9998; display: flex; align-items: flex-start;
+  justify-content: center; padding-top: 15vh;
+}
+.cmd-panel {
+  width: 100%; max-width: 560px;
+  background: #171B22;
+  border: 1px solid #2D3642;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.7);
+}
+.cmd-input {
+  width: 100%; background: transparent;
+  border: none; border-bottom: 1px solid #2D3642;
+  padding: 14px 16px; color: #F8FAFC;
+  font-size: 14px; outline: none;
+  font-family: inherit;
+}
+.cmd-result {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px; cursor: pointer;
+  color: #94A3B8; font-size: 13px;
+  transition: background 0.1s, color 0.1s;
+}
+.cmd-result:hover, .cmd-result.active {
+  background: #16A34A10; color: #F8FAFC;
+}
+.cmd-result-icon { color: #16A34A; flex-shrink: 0; }
+
+/* ─── Backward compat aliases (keep old class names working) ─── */
+.soc-card           { @apply sentinel-card; }
+.soc-card-hover     { @apply sentinel-card-hover; }
+.soc-input          { @apply sentinel-input; }
+.soc-btn-primary    { @apply sentinel-btn-primary; }
+.soc-btn-secondary  { @apply sentinel-btn-secondary; }
+.soc-btn-danger     { @apply sentinel-btn-danger; }
+.soc-btn-ghost      { @apply sentinel-btn-ghost; }
+.soc-badge          { @apply sentinel-badge; }

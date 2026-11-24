@@ -37,7 +37,6 @@ Thumbs.db
 desktop.ini
 
 # ─── Docker ────────────────────────────────
-.dockerignore
 
 # ─── Logs ──────────────────────────────────
 *.log

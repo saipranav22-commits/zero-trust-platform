@@ -3,6 +3,7 @@ package com.zerotrust.config;
 import com.zerotrust.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -38,6 +39,8 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final com.zerotrust.security.RateLimitingFilter rateLimitingFilter;
+    private final com.zerotrust.threat.ThreatInspectionFilter threatInspectionFilter;
     private final UserDetailsService userDetailsService;
 
     @Value("${app.security.cors-allowed-origins}")
@@ -56,6 +59,19 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+            // Exception handling: return 401 for unauthenticated, 403 for forbidden
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"success\":false,\"status\":401,\"message\":\"Authentication required\"}");
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"success\":false,\"status\":403,\"message\":\"Access denied: insufficient permissions\"}");
+                }))
+
             // Security headers
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny())
@@ -73,13 +89,43 @@ public class SecurityConfig {
                                               "/api/auth/refresh").permitAll()
                 .requestMatchers(HttpMethod.GET, "/actuator/health", "/api-docs/**",
                                                "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // SSE stream — authenticated by JWT query param
+                .requestMatchers(HttpMethod.GET, "/api/notifications/stream").permitAll()
                 // All other requests require authentication
                 .anyRequest().authenticated())
 
             // Add JWT filter before UsernamePasswordAuthenticationFilter
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            // Add Rate limiting filter immediately after JwtAuthenticationFilter
+            .addFilterAfter(rateLimitingFilter, JwtAuthenticationFilter.class)
+            // Add Threat inspection filter immediately after RateLimitingFilter
+            .addFilterAfter(threatInspectionFilter, com.zerotrust.security.RateLimitingFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(
+            JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false); // Disable top-level servlet container registration; managed in Spring Security
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<com.zerotrust.security.RateLimitingFilter> rateLimitingFilterRegistration(
+            com.zerotrust.security.RateLimitingFilter filter) {
+        FilterRegistrationBean<com.zerotrust.security.RateLimitingFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false); // Disable top-level servlet container registration; managed in Spring Security
+        return registration;
+    }
+
+    @Bean
+    public FilterRegistrationBean<com.zerotrust.threat.ThreatInspectionFilter> threatInspectionFilterRegistration(
+            com.zerotrust.threat.ThreatInspectionFilter filter) {
+        FilterRegistrationBean<com.zerotrust.threat.ThreatInspectionFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false); // Disable top-level servlet container registration; managed in Spring Security
+        return registration;
     }
 
     @Bean
